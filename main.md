@@ -1,16 +1,9 @@
----
-title: Untitled
-author: Amitai Schleier
-date: 2026-04-10T15:25:53Z
----
-
-# EndeavourOS Sway (Community Edition)
+# EndeavourOS Sway
 
 ## Boot repair
 
 - [chroot via live USB](https://gist.github.com/EdmundGoodman/c057ce0c826fd0edde7917d15b709f4f)
 - [mount btrfs root subvolume](https://wiki.archlinux.org/title/Btrfs#Mounting_subvolumes)
-- [check systemd-boot config](https://wiki.archlinux.org/title/Systemd-boot#Configuration)
 - [EndeavourOS system rescue docs](https://discovery.endeavouros.com/system-rescue/arch-chroot/)
 
 - `~/.config/sway/config.d/*`
@@ -31,17 +24,11 @@ From the live installer, pull in [Sway Community Edition](https://github.com/End
 Options:
 
 - whole disk
-- swap as big as RAM (enough for hibernate)
-- btrfs
 - encrypted
+- one big btrfs
+- swap enough for hibernate (?) (different for Chromebook?)
 
 ## Post-install steps
-
-### Clear pacman cache
-
-"Package Cleanup Configuration"
-XXX what's the systemd job that gets enabled, and how?
-`paccache` timer and service
 
 ### Revision-controlled `/etc`
 
@@ -61,20 +48,37 @@ git gc --prune
 pacman -S git-delta
 ```
 
+### Clear pacman cache
+
+"Package Cleanup Configuration" from the Welcome screen creates:
+
+- `systemd/system/paccache.service`
+- `systemd/system/paccache.timer`
+- `systemd/system/timers.target.wants/paccache.timer`
+
+```sh
+sudo etckeeper commit -m 'Periodically clean pacman cache.'
+```
+
+XXX CLI equivalent
+
 ### Timeshift rollback, too
 
 ```sh
 yay -S timeshift-autosnap
+sudo pacman -S grub-btrfs xorg-xhost snapper inotify-tools
 sudo systemctl enable --now cronie
 ```
 
 Then open the Timeshift app and follow the prompts.
 
-XXX this needs to be automated
+XXX CLI equivalent
 
 ```sh
 sudo etckeeper commit -m "Enable Timeshift."
 ```
+
+XXX snapper also? instead? does it integrate with pacman too?
 
 ### Actually autologin
 
@@ -139,14 +143,19 @@ fwupdmgr update
 
 ```sh
 sudo systemctl enable --now bluetooth
-sudo pacman -S --needed bluez bluez-utils blueman
+sudo pacman -S --needed blueman
 ```
+
+XXX what's `--needed`
 
 [bluetoothctl, etc.](https://wiki.archlinux.org/title/Bluetooth#Pairing)
 
 #### Chromebook can't resume, so prevent sleep
 
+XXX remove `/etc/systemd/logind.conf.d/suspend.conf`?
+
 ```sh
+sudo mkdir -p /etc/systemd/logind.conf.d
 sudo tee -a /etc/systemd/logind.conf.d/disable-sleep.conf << 'EOF'
 [Login]
 IdleAction=ignore
@@ -155,6 +164,7 @@ HandleLidSwitchExternalPower=lock
 HandlePowerKey=ignore
 HandlePowerKeyLongPress=ignore
 EOF
+sudo mkdir -p /etc/systemd/sleep.conf.d
 sudo tee -a /etc/systemd/sleep.conf.d/disable-sleep.conf << 'EOF'
 [Sleep]
 AllowHibernation=no
@@ -176,8 +186,30 @@ sudo etckeeper commit -m "Disable suspend (can't resume)."
 
 #### Power button
 
-- XXX Chromebook 100e
+##### Chromebook 100e
+
+XXX this kills your Sway session and also you'll need to Ctrl-C to get back to greetd
+
+```sh
+# Tell logind to ignore the power key (so Sway can handle it instead)
+DROPIN=/etc/systemd/logind.conf.d/suspend.conf
+
+if grep -q '^HandlePowerKey=' "$DROPIN"; then
+    echo "HandlePowerKey already set in $DROPIN — no change made"
+else
+    echo 'HandlePowerKey=ignore' >> "$DROPIN"
+    echo "Added HandlePowerKey=ignore to $DROPIN"
+fi
+
+systemctl restart systemd-logind
+loginctl show-session | grep HandlePowerKey
+```
+
+XXX add an `XF86PowerOff` power menu binding in `~/.config/sway/config.d/default`
+
+
 - XXX ThinkPad X270
+- XXX ThinkPad T60
 - XXX MacBookPro5,2
 - XXX MacBookAir7,1
 
@@ -272,6 +304,10 @@ exec swayidle -w \
 
 XXX bug report to Sway community edition
 
+#### Power-saving measures
+
+- [TLP](https://wiki.archlinux.org/title/TLP)
+
 #### Mac fan control
 
 ```sh
@@ -280,6 +316,14 @@ sudo cp /usr/lib/systemd/system/mbpfan.service /etc/systemd/system/
 sudo systemctl enable --now mbpfan.service
 sudo etckeeper commit -m "Enable mbpfan Mac fan control."
 ```
+
+#### Mac light sensors
+
+- [lightum](https://github.com/poliva/lightum)
+- [macbook-lighter](https://github.com/harttle/macbook-lighter)
+- [pommed](https://packages.debian.org/trixie/pommed)
+- [pommed-light](https://github.com/bytbox/pommed-light)
+- [Debian Mactel Team](https://qa.debian.org/developer.php?login=team%2Bpkg-mactel-devel%40tracker.debian.org)
 
 #### Keyboard backlight
 
@@ -302,9 +346,18 @@ XXX what about backlit keys on HP? autotuned clight?
 #### FaceTime webcam
 
 For instance, on 2015 11" MacBook Air (MacBookAir7,1):
+
 ```sh
 yay -S facetimehd-dkms
 sudo modprobe
+```
+
+#### iSight webcam
+
+Not sure who needs this:
+
+```sh
+yay -S isight-firmware
 ```
 
 #### Lightweight webcam capture
@@ -316,18 +369,27 @@ sudo pacman -S guvcview
 #### NVIDIA display workaround
 
 For instance, on 2009 17" MacBook Pro (MacBookPro5,2), there's a phantom second internal display to disable, so that the display manager comes up on the real screen:
+
+XXX doesn't match
+
 ```sh
-sudo sed -i 's/$/ video=LVDS-2:d/' /etc/kernel/cmdline
+sudo sed -i "/^GRUB_CMDLINE_LINUX_DEFAULT'=/"'{
+  /video=LVDS-2:d/! s/"$/ video=LVDS-2:d/
+}' /etc/default/grub
+sudo grub-mkconfig -o /boot/grub/grub.cfg
 sudo etckeeper commit -m "Disable second internal display."
-sudo reinstall-kernels
 ```
 
 #### zswap for RAM-limited machines
 
+XXX doesn't match
+
 ```sh
-sudo sed -i 's/$/ zswap.enabled=1 zswap.compressor=zstd zswap.zpool=z3fold zswap.max_pool_percent=20/' /etc/kernel/cmdline
+sudo sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT=/{
+  /zswap.enabled=1/! s/"$/ zswap.enabled=1 zswap.compressor=zstd zswap.zpool=z3fold zswap.max_pool_percent=20/
+}' /etc/default/grub
+sudo grub-mkconfig -o /boot/grub/grub.cfg
 sudo etckeeper commit -m "Enable zswap."
-sudo reinstall-kernels
 ```
 
 #### Chromebook audio
@@ -348,9 +410,14 @@ cd cros-keyboard-map
 ./install.sh
 ```
 
+#### Infrared receiver?
+
+- [LIRC](https://wiki.archlinux.org/title/LIRC)
+
 #### Other ThinkPad goodies?
 
 - smart card?
+- T60 volume and power buttons, ThinkVantage button, fingerprint reader
 
 
 
@@ -424,6 +491,11 @@ sudo tailscale set --operator=$USER
 echo 'exec tailscale systray' >> ~/.config/sway/config.d/autostart_applications
 tailscale systray &
 tailscale up
+```
+
+Open the login link: `Ctrl-Shift-O` + the letter shown.
+
+```sh
 tailscale set --accept-dns=true
 tailscale set --accept-routes
 ```
@@ -446,6 +518,9 @@ localsend --hidden &
 ```
 
 XXX configure it to use the real system hostname
+
+XXX T60 `unable to create a GL context`
+XXX try `sudo pacman -S vulkan-radeon`
 
 ### Social
 
@@ -472,13 +547,14 @@ The token expires monthly, so you have to redo this every ~30 days. [Source](htt
 ### Code
 
 ```sh
-sudo pacman -S apostrophe glow dawn-writer-bin tig github-cli socat
+sudo pacman -S apostrophe glow tig github-cli socat
 yay -S clion clion-jre \
 intellij-idea-ultimate-edition \
 goland goland-jre \
 webstorm webstorm-jre \
 pycharm \
-pi-coding-agent claude-code claude-desktop-bin claude-cowork-service
+dawn-writer-bin \
+claude-code claude-desktop-bin claude-cowork-service
 ```
 
 ### Office
