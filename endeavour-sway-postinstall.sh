@@ -1,9 +1,27 @@
 #!/usr/bin/env bash
-# setup-power.sh
+# endeavour-sway-postinstall.sh
 #
-# Unified power-button / lid-close / sleep configuration for EndeavourOS/Sway.
+# Post-install setup for EndeavourOS Sway edition.
 # Run as your normal user (sudo used internally where needed).
-# Safe to re-run; all writes are idempotent.
+# Safe to re-run; writes are idempotent where practical.
+#
+# Boot repair references (not run by this script — for emergencies):
+#   chroot via live USB: https://gist.github.com/EdmundGoodman/c057ce0c826fd0edde7917d15b709f4f
+#   mount btrfs root subvolume: https://wiki.archlinux.org/title/Btrfs#Mounting_subvolumes
+#   EndeavourOS system rescue: https://discovery.endeavouros.com/system-rescue/arch-chroot/
+#   Restore: ~/.config/sway/config.d/*, /etc/sudo*, clight configs
+#   XXX system (and foot, text editor, etc.) font size for small screens
+#   XXX maybe punt on geolocation?
+#   XXX I'll need to create AUR packages for the TI calc backup programs
+#   XXX pre-populate known WiFi configs in NetworkManager?
+#   XXX captive portal auto-browsing
+#   Pinebook Pro: https://endeavouros.com/endeavouros-arm-install/
+#
+# Install steps (done before running this script, via live installer):
+#   Pull in Sway Community Edition:
+#     https://github.com/EndeavourOS-Community-Editions/sway
+#   Options: whole disk, encrypted, one big btrfs
+#   XXX swap enough for hibernate? (different for Chromebook?)
 #
 # Supported machines:
 #   Chromebook 100e (Google/MrChromebox firmware)
@@ -37,6 +55,21 @@ require_sudo() {
     sudo -v || die "sudo credentials required."
 }
 
+swaymsg_reload() {
+    if [[ -n "${SWAYSOCK:-}" ]]; then
+        info "Reloading Sway config ..."
+        swaymsg reload
+    else
+        warn "Not in a Sway session — reload manually with: swaymsg reload"
+    fi
+}
+
+# Append LINE to FILE only if not already present.
+append_once() {
+    local file="$1" line="$2"
+    grep -qF "$line" "$file" 2>/dev/null || printf '%s\n' "$line" >> "$file"
+}
+
 # ── Machine detection ─────────────────────────────────────────────────────────
 
 MACHINE=""   # chromebook | macbook | thinkpad
@@ -62,6 +95,244 @@ detect_machine() {
     fi
 
     info "Detected machine class: ${MACHINE} (${product})"
+}
+
+# ── etckeeper ─────────────────────────────────────────────────────────────────
+
+etckeeper_commit() {
+    local msg="$1"
+    if command -v etckeeper &>/dev/null; then
+        info "etckeeper commit: ${msg}"
+        sudo etckeeper commit -m "$msg" 2>/dev/null || warn "etckeeper commit failed (non-fatal)."
+    fi
+}
+
+# ── Revision-controlled /etc ──────────────────────────────────────────────────
+
+setup_etckeeper() {
+    info "Setting up dotfiles and etckeeper ..."
+
+    mkdir -p ~/trees
+    if [[ ! -d ~/trees/dotfiles ]]; then
+        git clone https://github.com/schmonz/dotfiles.git ~/trees/dotfiles
+    fi
+    ln -sf ~/trees/dotfiles/gitconfig ~/.gitconfig
+    sudo ln -sf ~/trees/dotfiles/gitconfig /root/.gitconfig
+
+    sudo pacman -Syuu --noconfirm
+    sudo pacman -S --noconfirm etckeeper git-delta
+
+    if ! sudo etckeeper vcs log --oneline -1 &>/dev/null; then
+        sudo etckeeper init
+        sudo etckeeper commit -m 'Track /etc in revision control.'
+    fi
+
+    local current_branch
+    current_branch=$(sudo git -C /etc symbolic-ref --short HEAD 2>/dev/null || true)
+    if [[ "$current_branch" != "$(hostname)" ]]; then
+        sudo git -C /etc branch -m "$(hostname)"
+        sudo git -C /etc gc --prune
+    fi
+}
+
+# ── pacman cache cleanup ──────────────────────────────────────────────────────
+
+setup_pacman_cache() {
+    info "Configuring pacman cache cleanup ..."
+    # XXX CLI equivalent for "Package Cleanup Configuration" from the Welcome screen
+    # (that GUI creates paccache.service + paccache.timer)
+    etckeeper_commit "Periodically clean pacman cache."
+}
+
+# ── Timeshift rollback ────────────────────────────────────────────────────────
+
+setup_timeshift() {
+    info "Setting up Timeshift ..."
+    yay -S --noconfirm timeshift-autosnap
+    sudo pacman -S --noconfirm grub-btrfs xorg-xhost snapper inotify-tools
+    sudo systemctl enable --now cronie
+    # XXX CLI equivalent: open the Timeshift app and follow the prompts
+    # XXX snapper also? instead? does it integrate with pacman too?
+    etckeeper_commit "Enable Timeshift."
+}
+
+# ── Autologin ─────────────────────────────────────────────────────────────────
+
+setup_autologin() {
+    info "Configuring autologin for ${USER} ..."
+    # https://github.com/EndeavourOS-Community-Editions/sway/issues/105
+    if ! grep -q 'initial_session' /etc/greetd/greetd.conf; then
+        sudo tee -a /etc/greetd/greetd.conf > /dev/null << EOF
+
+[initial_session]
+command = "sway"
+user = "$USER"
+EOF
+        etckeeper_commit "Enable autologin."
+    else
+        info "Autologin already configured."
+    fi
+}
+
+# ── Dotfiles ──────────────────────────────────────────────────────────────────
+
+setup_dotfiles() {
+    info "Linking dotfiles ..."
+    ln -sf ~/trees/dotfiles/tmux.conf ~/.tmux.conf
+}
+
+# ── macOS habits ──────────────────────────────────────────────────────────────
+
+setup_macos_habits() {
+    info "Configuring macOS-compatible accents ..."
+    sudo localectl set-x11-keymap us "" mac
+    etckeeper_commit "Enable Mac-like accents with Right-Alt."
+    swaymsg_reload
+
+    info "Installing pbcopy/pbpaste ..."
+    printf '#!/bin/sh\nexec wl-copy "$@"\n' | sudo tee /usr/local/bin/pbcopy > /dev/null
+    printf '#!/bin/sh\nexec wl-paste --no-newline "$@"\n' | sudo tee /usr/local/bin/pbpaste > /dev/null
+    sudo chmod +x /usr/local/bin/pbcopy /usr/local/bin/pbpaste
+}
+
+# ── Firmware updates ──────────────────────────────────────────────────────────
+
+setup_firmware_updates() {
+    info "Checking firmware updates ..."
+    sudo pacman -S --noconfirm fwupd
+    fwupdmgr get-updates || true
+    fwupdmgr update || true
+    # MrChromebox firmware: https://docs.mrchromebox.tech/docs/firmware/updating-firmware.html
+}
+
+# ── Bluetooth ─────────────────────────────────────────────────────────────────
+
+setup_bluetooth() {
+    info "Enabling Bluetooth ..."
+    sudo systemctl enable --now bluetooth
+    sudo pacman -S --noconfirm blueman
+    # XXX what's --needed (skips already-installed packages)
+    # bluetoothctl pairing: https://wiki.archlinux.org/title/Bluetooth#Pairing
+}
+
+# ── Power-saving ──────────────────────────────────────────────────────────────
+
+setup_power_saving() {
+    : # TLP: https://wiki.archlinux.org/title/TLP
+}
+
+# ── Keyboard backlight and screen brightness ──────────────────────────────────
+
+setup_keyboard_backlight() {
+    info "Setting up keyboard backlight and screen brightness ..."
+    ls /sys/class/leds/ | grep -i kbd || true
+    brightnessctl --list | grep -i kbd || true
+    # XXX replace 'your-device-here' with detected device name from above
+    # brightnessctl --device='your-device-here' set 50%
+    # XXX keyboard brightness sway bindings (edit smc::kbd_backlight device name first):
+    # sed -i '/XF86MonBrightnessDown/a\        XF86KbdBrightnessUp exec brightnessctl -d smc::kbd_backlight set +5%\n        XF86KbdBrightnessDown exec brightnessctl -d smc::kbd_backlight set 5%-' \
+    #     ~/.config/sway/config.d/default
+    ls /sys/bus/iio/devices/*/in_illuminance* || true
+    # XXX what about autotuned screen brightness on ThinkPad?
+    # XXX what about backlit keys on HP? autotuned clight?
+    yay -S --noconfirm iio-sensor-proxy clight
+    sudo systemctl enable --now clightd
+    append_once ~/.config/sway/config.d/autostart_applications 'exec clight'
+    [[ -n "${SWAYSOCK:-}" ]] && clight &
+}
+
+# ── Mac fan control ───────────────────────────────────────────────────────────
+
+setup_mac_fan() {
+    info "Installing mbpfan ..."
+    yay -S --noconfirm mbpfan
+    sudo cp /usr/lib/systemd/system/mbpfan.service /etc/systemd/system/
+    sudo systemctl enable --now mbpfan.service
+    etckeeper_commit "Enable mbpfan Mac fan control."
+}
+
+# ── Mac light sensors ─────────────────────────────────────────────────────────
+
+setup_mac_light_sensors() {
+    : # lightum: https://github.com/poliva/lightum
+      # macbook-lighter: https://github.com/harttle/macbook-lighter
+      # pommed: https://packages.debian.org/trixie/pommed
+      # pommed-light: https://github.com/bytbox/pommed-light
+      # Debian Mactel Team: https://qa.debian.org/developer.php?login=team%2Bpkg-mactel-devel%40tracker.debian.org
+}
+
+# ── Webcam ────────────────────────────────────────────────────────────────────
+
+setup_webcam() {
+    info "Setting up webcam ..."
+    # FaceTime webcam (e.g. MacBookAir7,1)
+    yay -S --noconfirm facetimehd-dkms
+    sudo modprobe  # XXX missing module name
+    # iSight webcam — not sure who needs this:
+    # yay -S --noconfirm isight-firmware
+    sudo pacman -S --noconfirm guvcview
+}
+
+# ── NVIDIA display workaround ─────────────────────────────────────────────────
+
+setup_nvidia_display() {
+    : # For MacBookPro5,2: disable phantom second internal display (LVDS-2) so
+      # the display manager comes up on the real screen.
+      # XXX doesn't match — verify correct pattern before uncommenting:
+      # sudo sed -i "/^GRUB_CMDLINE_LINUX_DEFAULT'=/"'{
+      #   /video=LVDS-2:d/! s/"$/ video=LVDS-2:d/
+      # }' /etc/default/grub
+      # sudo grub-mkconfig -o /boot/grub/grub.cfg
+      # etckeeper_commit "Disable second internal display."
+}
+
+# ── zswap ─────────────────────────────────────────────────────────────────────
+
+setup_zswap() {
+    : # For RAM-limited machines.
+      # XXX doesn't match — verify correct pattern before uncommenting:
+      # sudo sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT=/{
+      #   /zswap.enabled=1/! s/"$/ zswap.enabled=1 zswap.compressor=zstd zswap.zpool=z3fold zswap.max_pool_percent=20/
+      # }' /etc/default/grub
+      # sudo grub-mkconfig -o /boot/grub/grub.cfg
+      # etckeeper_commit "Enable zswap."
+}
+
+# ── Chromebook audio ──────────────────────────────────────────────────────────
+
+setup_chromebook_audio() {
+    info "Setting up Chromebook audio ..."
+    if [[ ! -d ~/trees/chromebook-linux-audio ]]; then
+        git clone https://github.com/WeirdTreeThing/chromebook-linux-audio ~/trees/chromebook-linux-audio
+    fi
+    cd ~/trees/chromebook-linux-audio
+    echo "WHATEVER IT WANTS ME TO SAY" | ./setup-audio --force-avs-install  # XXX placeholder response
+    cd -
+}
+
+# ── Chromebook F-keys ─────────────────────────────────────────────────────────
+
+setup_chromebook_fkeys() {
+    info "Setting up Chromebook F-keys ..."
+    if [[ ! -d ~/trees/cros-keyboard-map ]]; then
+        git clone https://github.com/WeirdTreeThing/cros-keyboard-map ~/trees/cros-keyboard-map
+    fi
+    cd ~/trees/cros-keyboard-map
+    ./install.sh
+    cd -
+}
+
+# ── Infrared receiver ─────────────────────────────────────────────────────────
+
+setup_infrared_receiver() {
+    : # LIRC: https://wiki.archlinux.org/title/LIRC
+}
+
+# ── ThinkPad goodies ──────────────────────────────────────────────────────────
+
+setup_thinkpad_goodies() {
+    : # XXX smart card?
+      # XXX T60 volume and power buttons, ThinkVantage button, fingerprint reader
 }
 
 # ── Shared: logind drop-in ────────────────────────────────────────────────────
@@ -114,7 +385,6 @@ AllowHybridSleep=no
 AllowSuspendThenHibernate=no
 AllowSuspend=no
 EOF
-    # XXX remove `/etc/systemd/logind.conf.d/suspend.conf`?
 }
 
 restart_logind() {
@@ -210,7 +480,7 @@ add_sway_poweroff_binding() {
     fi
 
     info "Adding XF86PowerOff binding to ${target} ..."
-    printf '\n# Power button → power menu (added by setup-power.sh)\nbindsym XF86PowerOff exec $powermenu\n' \
+    printf '\n# Power button → power menu (added by endeavour-sway-postinstall.sh)\nbindsym XF86PowerOff exec $powermenu\n' \
         >> "$target"
 
     if [[ -n "${SUDO_USER:-}" ]]; then
@@ -339,14 +609,168 @@ EOF
     fi
 }
 
-# ── etckeeper ─────────────────────────────────────────────────────────────────
+# ── Passwords ─────────────────────────────────────────────────────────────────
 
-etckeeper_commit() {
-    local msg="$1"
-    if command -v etckeeper &>/dev/null; then
-        info "etckeeper commit: ${msg}"
-        sudo etckeeper commit -m "$msg" 2>/dev/null || warn "etckeeper commit failed (non-fatal)."
-    fi
+setup_passwords() {
+    info "Setting up password manager ..."
+    sudo pacman -S --noconfirm seahorse
+    yay -S --noconfirm 1password
+    append_once ~/.config/sway/config.d/autostart_applications 'exec 1password'
+    [[ -n "${SWAYSOCK:-}" ]] && 1password &
+}
+
+# ── Web ───────────────────────────────────────────────────────────────────────
+
+setup_web() {
+    info "Setting up web browser ..."
+    sudo pacman -Rs --noconfirm firefox
+    sudo mkdir -p /etc/1password
+    echo 'helium' | sudo tee -a /etc/1password/custom_allowed_browsers > /dev/null
+    etckeeper_commit "Enable Helium 1Password integration."
+    yay -S --noconfirm helium-browser-bin ungoogled-chromium-bin webapp-manager
+    append_once ~/.config/sway/config.d/application_defaults \
+        'for_window [app_id="helium"] inhibit_idle fullscreen'
+    sed -i 's|exec firefox|exec xdg-open https://|g' ~/.config/sway/config.d/default
+    swaymsg_reload
+    mkdir -p ~/.local/share/applications/kde4
+    printf '[Desktop Entry]\nHidden=true\n' > ~/.local/share/applications/chromium.desktop
+    printf '[Desktop Entry]\nHidden=true\n' > ~/.local/share/applications/kde4/webapp-manager.desktop
+    info "Launch Helium and assign an empty keyring passphrase when prompted."
+    # Geolocation (disabled):
+    # sudo pacman -S --noconfirm xdg-desktop-portal-gtk
+    # systemctl --user enable --now xdg-desktop-portal xdg-desktop-portal-gtk
+    # sed -i 's/import-environment DISPLAY WAYLAND_DISPLAY SWAYSOCK/import-environment DISPLAY WAYLAND_DISPLAY SWAYSOCK XDG_CURRENT_DESKTOP/' \
+    #     ~/.config/sway/config.d/autostart_applications
+    # swaymsg_reload
+}
+
+# ── Networking ────────────────────────────────────────────────────────────────
+
+setup_networking() {
+    info "Configuring local network and Tailscale ..."
+    # XXX clicking URLs in Foot how?
+
+    sudo firewall-cmd --set-default-zone=home
+    sudo firewall-cmd --reload
+    etckeeper_commit "Set default firewall zone to 'home'."
+    sudo pacman -S --noconfirm gvfs-dnssd
+    info "Log out and back in for Thunar Network view to show shares."
+
+    sudo systemctl enable --now systemd-resolved
+    sudo ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+    sudo pacman -S --noconfirm tailscale
+    sudo systemctl enable --now tailscaled
+    etckeeper_commit "Enable Tailscale."
+    sudo tailscale set --operator="$USER"
+    append_once ~/.config/sway/config.d/autostart_applications 'exec tailscale systray'
+    [[ -n "${SWAYSOCK:-}" ]] && tailscale systray &
+    tailscale up
+    # XXX the more I logout and login, the more tailscale systray icons I have
+    # XXX is this true for other systray icons as well?
+    # XXX maybe exit node also isn't working? admin console says:
+    # XXX   "This machine is misconfigured and cannot relay traffic."
+    # XXX but maybe that's enough for Plex (or Jellyfin)
+    tailscale set --accept-dns=true
+    tailscale set --accept-routes
+
+    yay -S --noconfirm localsend-bin
+    sudo firewall-cmd --add-port=53317/tcp --permanent
+    sudo firewall-cmd --add-port=53317/udp --permanent
+    sudo firewall-cmd --reload
+    etckeeper_commit "Allow LocalSend through firewall."
+    append_once ~/.config/sway/config.d/autostart_applications 'exec localsend --hidden'
+    [[ -n "${SWAYSOCK:-}" ]] && localsend --hidden &
+    # XXX configure LocalSend to use the real system hostname
+    # XXX T60: 'unable to create a GL context' — try: sudo pacman -S vulkan-radeon
+}
+
+# ── Social ────────────────────────────────────────────────────────────────────
+
+setup_social() {
+    info "Installing social apps ..."
+    sudo pacman -S --noconfirm discord signal-desktop
+    yay -S --noconfirm slack-electron
+}
+
+# ── Cloud storage ─────────────────────────────────────────────────────────────
+
+setup_cloud_storage() {
+    info "Setting up rclone / iCloud ..."
+    yay -S --noconfirm rclone
+    rclone config
+    # After authentication error: log into icloud.com in a browser, open Chrome
+    # Dev Tools → Network tab, click a request, grab the full Cookie header and
+    # X-APPLE-WEBAUTH-HSA-TRUST value, then:
+    #   rclone config update icloud cookies='' trust_token=""
+    # Token expires monthly (~30 days).
+    # https://forum.rclone.org/t/icloud-connect-not-working-http-error-400/52019/44
+}
+
+# ── Code ──────────────────────────────────────────────────────────────────────
+
+setup_code() {
+    info "Installing development tools ..."
+    sudo pacman -S --noconfirm apostrophe glow tig github-cli socat
+    yay -S --noconfirm \
+        clion clion-jre \
+        intellij-idea-ultimate-edition \
+        goland goland-jre \
+        webstorm webstorm-jre \
+        pycharm \
+        dawn-writer-bin \
+        claude-code claude-desktop-bin claude-cowork-service
+}
+
+# ── Office ────────────────────────────────────────────────────────────────────
+
+setup_office() {
+    info "Installing office and communication apps ..."
+    sudo pacman -S --noconfirm libreoffice-fresh abiword cups cups-browsed system-config-printer
+    yay -S --noconfirm zoom teams-for-linux-electron-bin
+    # XXX other cups goodies the installer was offering?
+}
+
+# ── Screen sharing ────────────────────────────────────────────────────────────
+
+setup_screen_sharing() {
+    info "Configuring screen sharing ..."
+    # XXX these already seem to be installed
+    sudo pacman -S --noconfirm xdg-desktop-portal xdg-desktop-portal-wlr
+    append_once ~/.config/zoomus.conf 'enableWaylandShare=true'
+    # XXX has this actually worked?
+}
+
+# ── Gaming ────────────────────────────────────────────────────────────────────
+
+setup_gaming() {
+    info "Installing gaming tools ..."
+    lspci | grep -i vga || true
+    sudo pacman -S --noconfirm steam prismlauncher
+    yay -S --noconfirm minecraft-launcher
+}
+
+# ── OS update notifications ───────────────────────────────────────────────────
+
+setup_update_notifier() {
+    info "Configuring OS update notifications ..."
+    sudo pacman -S --noconfirm eos-update-notifier
+    sudo sed -i 's|ShowHowAboutUpdates=notify|ShowHowAboutUpdates=notify+tray|' \
+        /etc/eos-update-notifier.conf
+    etckeeper_commit "Configure eos-update-notifier."
+    eos-update-notifier -init
+    # XXX runs on a timer -- how often?
+    # XXX show up in the Waybar?
+}
+
+# ── Other tools ───────────────────────────────────────────────────────────────
+
+setup_other_tools() {
+    info "Installing other tools ..."
+    sudo pacman -S --noconfirm btop fastfetch tmux the_silver_searcher xorg-xhost
+    sed -i 's/htop/btop/g' ~/.config/waybar/config
+    sed -i 's/waybar_htop/waybar_btop/g' ~/.config/sway/config.d/application_defaults
+    pkill -USR2 waybar || true
+    swaymsg_reload
 }
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -355,36 +779,78 @@ main() {
     require_sudo
     detect_machine
 
-    case "$MACHINE" in
+    setup_etckeeper
+    setup_pacman_cache
+    setup_timeshift
+    setup_autologin
+    setup_dotfiles
+    setup_macos_habits
+    setup_firmware_updates
+    setup_bluetooth
+    setup_power_saving
 
+    case "$MACHINE" in
       chromebook)
-        require_not_sway
+        setup_chromebook_audio
+        setup_chromebook_fkeys
+        ;;
+      macbook)
+        setup_keyboard_backlight
+        setup_mac_fan
+        setup_mac_light_sensors
+        setup_webcam
+        setup_nvidia_display
+        setup_zswap
+        ;;
+      thinkpad)
+        setup_infrared_receiver
+        setup_thinkpad_goodies
+        setup_zswap
+        ;;
+    esac
+
+    # XXX lid close does what? mute, lock, and suspend
+    # XXX cursor to lower right does what? lock and sleep display
+    # XXX cursor to upper right does what? lock
+    # XXX desktop picture with the hostname, somehow
+
+    # Power / lid / sleep — requires running outside a Sway session.
+    require_not_sway
+    case "$MACHINE" in
+      chromebook)
         configure_logind_chromebook
         restart_logind
         configure_chromebook_swayidle
         install_lid_handler
         add_sway_poweroff_binding
-        etckeeper_commit "setup-power.sh: chromebook power/lid/sleep config"
+        etckeeper_commit "endeavour-sway-postinstall: chromebook power/lid/sleep"
         ;;
-
       macbook)
-        require_not_sway
         configure_logind_common
         restart_logind
         add_sway_poweroff_binding
-        etckeeper_commit "setup-power.sh: macbook power-key config"
+        etckeeper_commit "endeavour-sway-postinstall: macbook power-key config"
         ;;
-
       thinkpad)
-        require_not_sway
         configure_logind_common
         configure_thinkpad_udev
         restart_logind
         add_sway_poweroff_binding
-        etckeeper_commit "setup-power.sh: thinkpad power-key config"
+        etckeeper_commit "endeavour-sway-postinstall: thinkpad power-key config"
         ;;
-
     esac
+
+    setup_passwords
+    setup_web
+    setup_networking
+    setup_social
+    setup_cloud_storage
+    setup_code
+    setup_office
+    setup_screen_sharing
+    setup_gaming
+    setup_update_notifier
+    setup_other_tools
 
     echo ""
     info "Done. Reload Sway to apply config changes: swaymsg reload"
