@@ -114,6 +114,7 @@ AllowHybridSleep=no
 AllowSuspendThenHibernate=no
 AllowSuspend=no
 EOF
+    # XXX remove `/etc/systemd/logind.conf.d/suspend.conf`?
 }
 
 restart_logind() {
