@@ -97,7 +97,7 @@ append_once() {
 
 # ── Machine capability flags ──────────────────────────────────────────────────
 #
-# All default false. detect_machine() sets whichever apply.
+# All default false. detect_machine_capabilities() sets whichever apply.
 # Phase logic keys on these flags, never on a machine-name string.
 
 DISABLE_SLEEP=false        # mask all suspend/sleep targets
@@ -137,13 +137,13 @@ report_capabilities() {
     text+=$(printf "$fmt" "THINKPAD_GOODIES=$THINKPAD_GOODIES"         "ThinkPad smart card/buttons/fingerprint")
     text+=$(printf "$fmt" "NEEDS_SOFTWARE_GL=$NEEDS_SOFTWARE_GL"       "LIBGL_ALWAYS_SOFTWARE=1")
     text+=$(printf "$fmt" "HAS_WEBCAM=$HAS_WEBCAM"                     "guvcview")
-    text+="If any flag looks wrong, improve its probe in detect_machine()."
+    text+="If any flag looks wrong, improve its probe in detect_machine_capabilities()."
     info "$text"
     # In root phases (1 and 2): also write to warnings file so user sees it on first login.
     [[ $EUID -eq 0 ]] && echo "$text" >> "$WARNINGS_FILE"
 }
 
-detect_machine() {
+detect_machine_capabilities() {
     local vendor product bios input_dir name phys hwmon total_mem_kb
     vendor=$(_sudo dmidecode -s system-manufacturer 2>/dev/null || true)
     product=$(_sudo dmidecode -s system-product-name 2>/dev/null || true)
@@ -722,7 +722,7 @@ phase1() {
     [[ -n "$target_user" ]] \
         || die "No user found with uid >= 1000. Has Calamares created the user yet?"
 
-    detect_machine
+    detect_machine_capabilities
 
     info "=== Phase 1: pacman installs ==="
     pacman -Syuu --noconfirm
@@ -826,7 +826,7 @@ phase2() {
     [[ -n "$target_user" ]] || die "No user found with uid >= 1000."
     target_home=$(getent passwd "$target_user" | cut -d: -f6)
 
-    detect_machine
+    detect_machine_capabilities
 
     info "=== Phase 2: etckeeper commit ==="
     etckeeper commit -m 'Track /etc after phase-1 install.' 2>/dev/null || true
@@ -881,7 +881,7 @@ phase2() {
 
 phase3() {
     require_sudo
-    detect_machine
+    detect_machine_capabilities
 
     info "=== Phase 3: gaming: GPU check ==="
     lspci | grep -i vga || true
