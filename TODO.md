@@ -8,6 +8,8 @@
 
 - **`setup_power_saving`** (line 498): empty stub. Decide on TLP vs. power-profiles-daemon and implement.
 
+- **`setup_webcam`**: currently runs for all known machines (including T60 which has no webcam). Gate on actual webcam detection — e.g. check for `/dev/video*` or a populated `v4l2-ctl --list-devices` before installing guvcview.
+
 - **`setup_infrared_receiver`** (line 502): empty stub. Implement LIRC setup or drop if not needed.
 
 - **`setup_thinkpad_goodies`** (line 506): empty stub. Investigate and implement:
@@ -24,7 +26,6 @@
 ### Networking (lines 804–813)
 - Tailscale exit node misconfigured ("cannot relay traffic") — investigate admin console.
 - LocalSend: configure to use real system hostname instead of default.
-- LocalSend: run with special env vars on T60 (which ones were they again?) to work around ancient video hardware, I think by doing GL in software?
 
 ### Screen sharing (line 832)
 - Confirm whether Zoom screen sharing actually works under Sway/wlroots (xdg-desktop-portal-wlr). Document result.

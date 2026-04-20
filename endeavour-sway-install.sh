@@ -95,35 +95,84 @@ append_once() {
     grep -qF "$line" "$file" 2>/dev/null || printf '%s\n' "$line" >> "$file"
 }
 
-# ── Machine detection ─────────────────────────────────────────────────────────
+# ── Machine capability flags ──────────────────────────────────────────────────
+#
+# All default false. detect_machine() sets whichever apply.
+# Phase logic keys on these flags, never on a machine-name string.
 
-MACHINE=""   # chromebook | macbook | thinkpad | unknown
+DISABLE_SLEEP=false        # mask all suspend/sleep targets (chromebook)
+ACPI_LID_POLL=false        # poll /proc/acpi for lid; EC never fires events (chromebook)
+POWER_KEY_UDEV_STRIP=false # strip power-switch udev tag so logind releases grab (thinkpad)
+SWAY_POWER_KEY=false       # add XF86PowerOff bindsym in Sway config
+CHROMEBOOK_AUDIO=false     # run chromebook-linux-audio AVS setup
+CHROMEBOOK_FKEYS=false     # install cros-keyboard-map
+AMBIENT_LIGHT_SENSOR=false # install iio-sensor-proxy + clight, enable clightd
+KBD_BACKLIGHT=false        # auto-detect keyboard backlight and add Sway bindings
+NEEDS_MBPFAN=false         # install + enable mbpfan
+HAS_FACETIMEHD=false       # install facetimehd-dkms (MacBookAir FaceTime HD webcam)
+PHANTOM_LVDS2=false        # disable phantom second internal display (MacBookPro5,2)
+NEEDS_ZSWAP=false          # enable zswap in GRUB_CMDLINE_LINUX_DEFAULT
+HAS_IR_RECEIVER=false      # set up LIRC infrared receiver (T60)
+THINKPAD_GOODIES=false     # ThinkPad-specific: smart card, buttons, fingerprint
+NEEDS_SOFTWARE_GL=false    # set LIBGL_ALWAYS_SOFTWARE=1 (T60: modern GL unsupported)
+HAS_WEBCAM=false           # install guvcview (TODO: detect actual webcam presence)
 
 detect_machine() {
     local vendor product bios
-
     vendor=$(_sudo dmidecode -s system-manufacturer 2>/dev/null || true)
     product=$(_sudo dmidecode -s system-product-name 2>/dev/null || true)
     bios=$(_sudo dmidecode -s bios-version 2>/dev/null || true)
 
     if [[ "$vendor" == "Google" && "$bios" == MrChromebox* ]]; then
-        MACHINE=chromebook
+        DISABLE_SLEEP=true
+        ACPI_LID_POLL=true
+        SWAY_POWER_KEY=true
+        CHROMEBOOK_AUDIO=true
+        CHROMEBOOK_FKEYS=true
+        HAS_WEBCAM=true
+        info "Detected: Chromebook (MrChromebox) — ${product:-unknown}"
+
     elif [[ "$vendor" == "Apple Inc." ]]; then
+        AMBIENT_LIGHT_SENSOR=true
+        KBD_BACKLIGHT=true
+        NEEDS_MBPFAN=true
+        NEEDS_ZSWAP=true
+        SWAY_POWER_KEY=true
+        HAS_WEBCAM=true
         case "$product" in
-            MacBookPro5,2|MacBookAir7,1) MACHINE=macbook ;;
+            MacBookPro5,2)
+                PHANTOM_LVDS2=true
+                ;;
+            MacBookAir7,1)
+                HAS_FACETIMEHD=true
+                ;;
             *)
-                accumulate_warning "Unrecognised Apple product '${product}'. Add it to detect_machine() if needed."
-                MACHINE=unknown
+                accumulate_warning "Unrecognised Apple product '${product}'. Add it to detect_machine()."
                 ;;
         esac
+        info "Detected: Apple Mac — ${product:-unknown}"
+
     elif [[ "$vendor" == "LENOVO" ]] && echo "$product" | grep -qi "ThinkPad\|2623P3U\|20HMS6VR00"; then
-        MACHINE=thinkpad
+        POWER_KEY_UDEV_STRIP=true
+        SWAY_POWER_KEY=true
+        THINKPAD_GOODIES=true
+        NEEDS_ZSWAP=true
+        HAS_WEBCAM=true
+        case "$product" in
+            *T60*|*2623*)
+                HAS_IR_RECEIVER=true
+                NEEDS_SOFTWARE_GL=true
+                ;;
+            *X270*|*20HMS6VR00*)
+                KBD_BACKLIGHT=true
+                ;;
+        esac
+        info "Detected: ThinkPad — ${product:-unknown}"
+
     else
         accumulate_warning "Unrecognised machine (vendor='${vendor}' product='${product}'). Add it to detect_machine()."
-        MACHINE=unknown
+        info "Detected: unknown machine — vendor='${vendor}' product='${product:-unknown}'"
     fi
-
-    info "Detected machine class: ${MACHINE} (${product:-unknown})"
 }
 
 # First real user account (uid 1000–65533); used by phases 1 and 2.
@@ -434,6 +483,7 @@ setup_chromebook_fkeys() {
 
 setup_mac_fan() {
     info "Installing mbpfan ..."
+    yay -S --noconfirm mbpfan
     sudo cp /usr/lib/systemd/system/mbpfan.service /etc/systemd/system/
     sudo systemctl enable --now mbpfan.service
     etckeeper_commit "Enable mbpfan Mac fan control."
@@ -441,7 +491,7 @@ setup_mac_fan() {
 
 setup_mac_light_sensors() {
     info "Configuring clight sensor floor ..."
-    # clight is installed + started in the macbook block above (iio-sensor-proxy + clightd).
+    # clight is installed + started in the AMBIENT_LIGHT_SENSOR block above (iio-sensor-proxy + clightd).
     # Without a floor, clight maps a dark room to 0% brightness — invisible screen.
     sudo mkdir -p /etc/clight/modules.conf.d
     sudo tee /etc/clight/modules.conf.d/sensor.conf > /dev/null << 'EOF'
@@ -674,14 +724,12 @@ EOF
     ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
 
     info "=== Phase 1: logind / sleep config ==="
-    case "$MACHINE" in
-      chromebook) configure_logind_chromebook ;;
-      *)          configure_logind_common ;;
-    esac
-
-    if [[ "$MACHINE" == "thinkpad" ]]; then
-        write_thinkpad_udev_rule
+    if $DISABLE_SLEEP; then
+        configure_logind_chromebook
+    else
+        configure_logind_common
     fi
+    $POWER_KEY_UDEV_STRIP && write_thinkpad_udev_rule
 
     info "=== Phase 1: first-boot service ==="
     install_firstboot_service
@@ -737,9 +785,7 @@ phase2() {
     firewall-cmd --reload || true
 
     info "=== Phase 2: logind restart ==="
-    case "$MACHINE" in
-      thinkpad) reload_thinkpad_udev ;;
-    esac
+    $POWER_KEY_UDEV_STRIP && reload_thinkpad_udev
     restart_logind
 
     etckeeper commit -m 'endeavour-sway: phase-2 first-boot config.' 2>/dev/null || true
@@ -820,17 +866,13 @@ phase3() {
     tailscale set --accept-dns=true
     tailscale set --accept-routes
     etckeeper_commit "Enable Tailscale."
-    # XXX the more I logout and login, the more tailscale systray icons I have
-    # XXX is this true for other systray icons as well?
     # XXX maybe exit node also isn't working? admin console says:
     # XXX   "This machine is misconfigured and cannot relay traffic."
     # XXX but maybe that's enough for Plex (or Jellyfin)
     append_once ~/.config/sway/config.d/autostart_applications 'exec localsend --hidden'
     [[ -n "${SWAYSOCK:-}" ]] && localsend --hidden &
     # XXX configure LocalSend to use the real system hostname
-    # XXX T60: 'unable to create a GL context' — try: sudo pacman -S vulkan-radeon
     info "Log out and back in for Thunar Network view to show shares."
-    # XXX clicking URLs in Foot?
 
     info "=== Phase 3: etckeeper commits ==="
     etckeeper_commit "Enable autologin."
@@ -877,20 +919,24 @@ phase3() {
     # https://forum.rclone.org/t/icloud-connect-not-working-http-error-400/52019/44
 
     info "=== Phase 3: machine-specific ==="
-    case "$MACHINE" in
-      chromebook)
-        setup_chromebook_audio
-        setup_chromebook_fkeys
+
+    $CHROMEBOOK_AUDIO && setup_chromebook_audio
+    $CHROMEBOOK_FKEYS && setup_chromebook_fkeys
+    if $ACPI_LID_POLL; then
         configure_chromebook_swayidle
         install_lid_handler
-        add_sway_poweroff_binding "$USER"
-        etckeeper_commit "endeavour-sway: chromebook power/lid/sleep"
-        ;;
-      macbook)
-        yay -S --noconfirm iio-sensor-proxy clight mbpfan facetimehd-dkms
+    fi
+
+    if $AMBIENT_LIGHT_SENSOR; then
+        yay -S --noconfirm iio-sensor-proxy clight
         sudo systemctl enable --now clightd
         append_once ~/.config/sway/config.d/autostart_applications 'exec clight'
         [[ -n "${SWAYSOCK:-}" ]] && clight &
+        ls /sys/bus/iio/devices/*/in_illuminance* || true
+        setup_mac_light_sensors
+    fi
+
+    if $KBD_BACKLIGHT; then
         local kbd_dev
         kbd_dev=$(brightnessctl --list 2>/dev/null | awk -F"'" '/[Kk]eyboard/{print $2; exit}')
         if [[ -n "$kbd_dev" ]]; then
@@ -901,29 +947,27 @@ phase3() {
         else
             accumulate_warning "No keyboard backlight device found — skipping kbd brightness bindings."
         fi
-        ls /sys/bus/iio/devices/*/in_illuminance* || true
-        # XXX what about autotuned screen brightness on ThinkPad?
-        # XXX what about backlit keys on HP? autotuned clight?
-        setup_mac_fan
-        setup_mac_light_sensors
-        setup_webcam
-        setup_nvidia_display
-        setup_zswap
-        add_sway_poweroff_binding "$USER"
-        etckeeper_commit "endeavour-sway: macbook power/display/fan config"
-        ;;
-      thinkpad)
-        setup_infrared_receiver
-        setup_thinkpad_goodies
-        setup_zswap
-        add_sway_poweroff_binding "$USER"
-        etckeeper_commit "endeavour-sway: thinkpad power-key config"
+    fi
+
+    $NEEDS_MBPFAN    && setup_mac_fan
+    $HAS_FACETIMEHD  && yay -S --noconfirm facetimehd-dkms
+    $HAS_WEBCAM      && setup_webcam
+    $PHANTOM_LVDS2 && setup_nvidia_display
+    $NEEDS_ZSWAP   && setup_zswap
+
+    if $NEEDS_SOFTWARE_GL; then
+        info "Enabling software GL rendering (LIBGL_ALWAYS_SOFTWARE=1) ..."
+        mkdir -p ~/.config/environment.d
+        echo 'LIBGL_ALWAYS_SOFTWARE=1' > ~/.config/environment.d/50-softgl.conf
+    fi
+
+    $HAS_IR_RECEIVER   && setup_infrared_receiver
+    $THINKPAD_GOODIES  && setup_thinkpad_goodies
+    $SWAY_POWER_KEY    && add_sway_poweroff_binding "$USER"
+
+    etckeeper_commit "endeavour-sway: machine-specific phase-3 config."
+    $POWER_KEY_UDEV_STRIP && \
         info "Note: the udev grab release requires a re-login or reboot to take full effect."
-        ;;
-      unknown)
-        accumulate_warning "Machine class unknown — machine-specific setup skipped."
-        ;;
-    esac
 
     swaymsg_reload
 
