@@ -184,108 +184,160 @@ report_capabilities() {
     [[ $EUID -eq 0 ]] && echo "$text" >> "$WARNINGS_FILE"
 }
 
+# ── Hardware probes ───────────────────────────────────────────────────────────
+#
+# Each probe sets one or more capability flags.
+# File/device probes read from ${PROBE_ROOT} (default empty = real system root).
+# Command-output probes accept pre-collected output as their first argument.
+# Tests set PROBE_ROOT to a fixture directory and pass synthetic strings.
+
+PROBE_ROOT="${PROBE_ROOT:-}"
+
+# DISABLE_SLEEP: MrChromebox firmware = Chromebook with broken suspend/resume.
+probe_disable_sleep() {       # arg: bios-version string
+    [[ "${1:-}" == MrChromebox* ]] && DISABLE_SLEEP=true || true
+}
+
+# ACPI_LID_POLL: lid ACPI node exists but no input device is named "Lid Switch"
+# (Chrome EC handles the event in hardware, never generating kernel input events).
+probe_acpi_lid_poll() {
+    [[ -f "${PROBE_ROOT}/proc/acpi/button/lid/LID0/state" ]] || return 0
+    grep -rql "Lid Switch" "${PROBE_ROOT}/sys/class/input/input"*/name 2>/dev/null \
+        && return 0
+    ACPI_LID_POLL=true
+}
+
+# POWER_KEY_UDEV_STRIP: LNXPWRBN power button still carries the power-switch udev
+# tag, meaning logind holds an exclusive grab that blocks Sway from seeing the key.
+probe_power_key_udev_strip() { # arg: concatenated udevadm info for LNXPWRBN devices
+    grep -q "power-switch" <<< "${1:-}" && POWER_KEY_UDEV_STRIP=true || true
+}
+
+# SWAY_POWER_KEY: any input device named "Power Button" is present.
+probe_sway_power_key() {
+    local input_dir
+    for input_dir in "${PROBE_ROOT}"/sys/class/input/input*/; do
+        [[ "$(cat "${input_dir}name" 2>/dev/null)" == "Power Button" ]] \
+            && { SWAY_POWER_KEY=true; return; }
+    done
+}
+
+# CHROMEBOOK_FKEYS + CHROMEBOOK_AUDIO: Chrome EC present = Chromebook hardware.
+probe_chromebook() {
+    if [[ -d "${PROBE_ROOT}/sys/class/chromeos/cros_ec" ]] \
+       || [[ -e "${PROBE_ROOT}/dev/cros_ec" ]]; then
+        CHROMEBOOK_FKEYS=true
+        CHROMEBOOK_AUDIO=true
+    fi
+}
+
+# AMBIENT_LIGHT_SENSOR: IIO illuminance sensor visible in sysfs.
+probe_ambient_light_sensor() {
+    ls "${PROBE_ROOT}"/sys/bus/iio/devices/*/in_illuminance* 2>/dev/null \
+        | grep -q . && AMBIENT_LIGHT_SENSOR=true || true
+}
+
+# KBD_BACKLIGHT: keyboard backlight LED device in sysfs.
+probe_kbd_backlight() {
+    ls "${PROBE_ROOT}/sys/class/leds/" 2>/dev/null \
+        | grep -qiE "kbd|keyboard" && KBD_BACKLIGHT=true || true
+}
+
+# NEEDS_MBPFAN: Apple SMC hardware monitor (applesmc) present.
+probe_needs_mbpfan() {
+    local hwmon
+    for hwmon in "${PROBE_ROOT}"/sys/class/hwmon/hwmon*/name; do
+        grep -q "applesmc" "$hwmon" 2>/dev/null && { NEEDS_MBPFAN=true; return; }
+    done
+}
+
+# HAS_FACETIMEHD: Broadcom FaceTime HD camera (PCIe ID 14e4:1570).
+probe_has_facetimehd() {      # arg: lspci -n output
+    grep -q "14e4:1570" <<< "${1:-}" && HAS_FACETIMEHD=true || true
+}
+
+# PHANTOM_LVDS2: second internal LVDS output enumerated by DRM.
+# Requires GPU driver to be loaded — may be false during phase 1 chroot.
+probe_phantom_lvds2() {
+    ls "${PROBE_ROOT}/sys/class/drm/" 2>/dev/null \
+        | grep -q "LVDS-2" && PHANTOM_LVDS2=true || true
+}
+
+# NEEDS_ZSWAP: total RAM under 8 GiB.
+probe_needs_zswap() {         # arg: MemTotal value in kB
+    local kb="${1:-0}"
+    (( kb > 0 && kb < 8*1024*1024 )) && NEEDS_ZSWAP=true || true
+}
+
+# HAS_IR_RECEIVER: LIRC character device present.
+probe_ir_receiver() {
+    ls "${PROBE_ROOT}"/dev/lirc* 2>/dev/null | grep -q . && HAS_IR_RECEIVER=true || true
+}
+
+# THINKPAD_GOODIES: Lenovo ThinkPad SMBIOS — TrackPoint buttons, smart card,
+# ThinkVantage button, fingerprint reader are ThinkPad-specific.
+probe_thinkpad_goodies() {    # args: vendor, product
+    [[ "${1:-}" == "LENOVO" ]] \
+        && echo "${2:-}" | grep -qi "ThinkPad" \
+        && THINKPAD_GOODIES=true || true
+}
+
+# NEEDS_SOFTWARE_GL: ATI R430 GPU (Mobility Radeon X1xxx, PCI 1002:5b6x) —
+# cannot drive modern OpenGL; requires llvmpipe via LIBGL_ALWAYS_SOFTWARE=1.
+probe_needs_software_gl() {   # arg: lspci -n output
+    grep -q "1002:5b6" <<< "${1:-}" && NEEDS_SOFTWARE_GL=true || true
+}
+
+# HAS_WEBCAM: V4L2 device present, or FaceTime HD PCIe camera detected.
+# Note: driver-backed /dev/video* may not exist until after first reboot
+# (e.g. facetimehd-dkms just installed); lspci covers that gap.
+probe_has_webcam() {          # arg: lspci -n output
+    if ls "${PROBE_ROOT}"/dev/video* 2>/dev/null | grep -q . \
+       || ls "${PROBE_ROOT}/sys/class/video4linux/" 2>/dev/null | grep -q . \
+       || grep -q "14e4:1570" <<< "${1:-}"; then
+        HAS_WEBCAM=true
+    fi
+}
+
+# ── Capability orchestrator ───────────────────────────────────────────────────
+
 detect_machine_capabilities() {
-    local vendor product bios input_dir name phys hwmon total_mem_kb
+    local vendor product bios lspci_out total_mem_kb
+    local input_dir name phys udev_power_out evdir
+
     vendor=$(_sudo dmidecode -s system-manufacturer 2>/dev/null || true)
     product=$(_sudo dmidecode -s system-product-name 2>/dev/null || true)
     bios=$(_sudo dmidecode -s bios-version 2>/dev/null || true)
+    lspci_out=$(_sudo lspci -n 2>/dev/null || true)
+    total_mem_kb=$(awk '/MemTotal/{print $2}' /proc/meminfo 2>/dev/null || echo 0)
 
-    # DISABLE_SLEEP: MrChromebox firmware = Chromebook with broken suspend/resume.
-    [[ "$bios" == MrChromebox* ]] && DISABLE_SLEEP=true
-
-    # ACPI_LID_POLL: lid ACPI node exists but no input device is named "Lid Switch"
-    # (EC handles the event in hardware, never generating kernel input events).
-    if [[ -f /proc/acpi/button/lid/LID0/state ]]; then
-        if ! grep -rql "Lid Switch" /sys/class/input/input*/name 2>/dev/null; then
-            ACPI_LID_POLL=true
-        fi
-    fi
-
-    # POWER_KEY_UDEV_STRIP: LNXPWRBN power button still carries the power-switch
-    # udev tag, meaning logind holds an exclusive grab that blocks Sway.
+    # Collect udevadm output for LNXPWRBN power-button input devices.
+    udev_power_out=""
     for input_dir in /sys/class/input/input*/; do
         name=$(cat "${input_dir}name" 2>/dev/null || true)
         phys=$(cat "${input_dir}phys" 2>/dev/null || true)
         if [[ "$name" == "Power Button" && "$phys" == *LNXPWRBN* ]]; then
             for evdir in "${input_dir}"event*/; do
-                if _sudo udevadm info "/dev/input/$(basename "$evdir")" 2>/dev/null \
-                   | grep -q "power-switch"; then
-                    POWER_KEY_UDEV_STRIP=true
-                fi
+                udev_power_out+=$(_sudo udevadm info "/dev/input/$(basename "$evdir")" 2>/dev/null || true)
             done
         fi
     done
 
-    # SWAY_POWER_KEY: any input device named "Power Button" is present.
-    for input_dir in /sys/class/input/input*/; do
-        if [[ "$(cat "${input_dir}name" 2>/dev/null)" == "Power Button" ]]; then
-            SWAY_POWER_KEY=true; break
-        fi
-    done
-
-    # CHROMEBOOK_FKEYS + CHROMEBOOK_AUDIO: Chrome EC present = Chromebook hardware.
-    if [[ -d /sys/class/chromeos/cros_ec ]] || [[ -e /dev/cros_ec ]]; then
-        CHROMEBOOK_FKEYS=true
-        CHROMEBOOK_AUDIO=true
-    fi
-
-    # AMBIENT_LIGHT_SENSOR: IIO illuminance sensor visible in sysfs.
-    if ls /sys/bus/iio/devices/*/in_illuminance* 2>/dev/null | grep -q .; then
-        AMBIENT_LIGHT_SENSOR=true
-    fi
-
-    # KBD_BACKLIGHT: keyboard backlight LED device in sysfs.
-    if ls /sys/class/leds/ 2>/dev/null | grep -qiE "kbd|keyboard"; then
-        KBD_BACKLIGHT=true
-    fi
-
-    # NEEDS_MBPFAN: Apple SMC hardware monitor (applesmc) present.
-    for hwmon in /sys/class/hwmon/hwmon*/name; do
-        if grep -q "applesmc" "$hwmon" 2>/dev/null; then
-            NEEDS_MBPFAN=true; break
-        fi
-    done
-
-    # HAS_FACETIMEHD: Broadcom FaceTime HD camera (PCIe ID 14e4:1570).
-    if _sudo lspci -n 2>/dev/null | grep -q "14e4:1570"; then
-        HAS_FACETIMEHD=true
-    fi
-
-    # PHANTOM_LVDS2: second internal LVDS output enumerated by DRM.
-    # Requires GPU driver to be loaded — may be false during phase 1 chroot.
-    if ls /sys/class/drm/ 2>/dev/null | grep -q "LVDS-2"; then
-        PHANTOM_LVDS2=true
-    fi
-
-    # NEEDS_ZSWAP: total RAM under 8 GiB.
-    total_mem_kb=$(awk '/MemTotal/{print $2}' /proc/meminfo 2>/dev/null || echo 0)
-    (( total_mem_kb > 0 && total_mem_kb < 8*1024*1024 )) && NEEDS_ZSWAP=true
-
-    # HAS_IR_RECEIVER: LIRC character device present.
-    if ls /dev/lirc* 2>/dev/null | grep -q .; then
-        HAS_IR_RECEIVER=true
-    fi
-
-    # THINKPAD_GOODIES: Lenovo ThinkPad SMBIOS — TrackPoint buttons, smart card,
-    # ThinkVantage button, fingerprint reader are ThinkPad-specific.
-    if [[ "$vendor" == "LENOVO" ]] && echo "$product" | grep -qi "ThinkPad"; then
-        THINKPAD_GOODIES=true
-    fi
-
-    # NEEDS_SOFTWARE_GL: ATI R430 GPU (Mobility Radeon X1xxx, PCI 1002:5b6x) —
-    # cannot drive modern OpenGL; requires llvmpipe via LIBGL_ALWAYS_SOFTWARE=1.
-    if _sudo lspci -n 2>/dev/null | grep -q "1002:5b6"; then
-        NEEDS_SOFTWARE_GL=true
-    fi
-
-    # HAS_WEBCAM: V4L2 device present, or FaceTime HD PCIe camera detected.
-    # Note: driver-backed /dev/video* may not exist until after first reboot
-    # (e.g. facetimehd-dkms just installed); lspci covers that gap.
-    if ls /dev/video* 2>/dev/null | grep -q . || \
-       ls /sys/class/video4linux/ 2>/dev/null | grep -q . || \
-       _sudo lspci -n 2>/dev/null | grep -q "14e4:1570"; then
-        HAS_WEBCAM=true
-    fi
+    probe_disable_sleep         "$bios"
+    probe_acpi_lid_poll
+    probe_power_key_udev_strip  "$udev_power_out"
+    probe_sway_power_key
+    probe_chromebook
+    probe_ambient_light_sensor
+    probe_kbd_backlight
+    probe_needs_mbpfan
+    probe_has_facetimehd        "$lspci_out"
+    probe_phantom_lvds2
+    probe_needs_zswap           "$total_mem_kb"
+    probe_ir_receiver
+    probe_thinkpad_goodies      "$vendor" "$product"
+    probe_needs_software_gl     "$lspci_out"
+    probe_has_webcam            "$lspci_out"
 
     report_capabilities
 }
