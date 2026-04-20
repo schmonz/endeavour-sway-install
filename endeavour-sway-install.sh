@@ -457,25 +457,36 @@ setup_webcam() {
     sudo pacman -S --noconfirm guvcview
 }
 
+# Idempotently add PARAMS to grub variable VAR, guarded by CHECK already present.
+# Handles empty and non-empty values, single- or double-quoted.
+add_grub_param() {
+    local var="$1" check="$2" params="$3"
+    sudo sed -i -E "
+/^${var}=/{
+    /${check}/! {
+        s/=([\"'])\1\$/=\1${params}\1/
+        t
+        s/=([\"'])(.*)\1\$/=\1\2 ${params}\1/
+    }
+}" /etc/default/grub
+}
+
 setup_nvidia_display() {
-    : # For MacBookPro5,2: disable phantom second internal display (LVDS-2) so
-      # the display manager comes up on the real screen.
-      # XXX doesn't match — verify correct pattern before uncommenting:
-      # sudo sed -i "/^GRUB_CMDLINE_LINUX_DEFAULT=/"'{
-      #   /video=LVDS-2:d/! s/"$/ video=LVDS-2:d/
-      # }' /etc/default/grub
-      # sudo grub-mkconfig -o /boot/grub/grub.cfg
-      # etckeeper_commit "Disable second internal display."
+    # For MacBookPro5,2 so the display manager comes up on the real screen.
+    info "Disabling phantom second internal display (LVDS-2) ..."
+    # Targets GRUB_CMDLINE_LINUX (not _DEFAULT) so recovery boots also get the fix.
+    add_grub_param GRUB_CMDLINE_LINUX video=LVDS-2:d video=LVDS-2:d
+    sudo grub-mkconfig -o /boot/grub/grub.cfg
+    etckeeper_commit "Disable second internal display (MacBookPro5,2 LVDS-2)."
 }
 
 setup_zswap() {
-    : # For RAM-limited machines.
-      # XXX doesn't match — verify correct pattern before uncommenting:
-      # sudo sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT=/{
-      #   /zswap.enabled=1/! s/"$/ zswap.enabled=1 zswap.compressor=zstd zswap.zpool=z3fold zswap.max_pool_percent=20/
-      # }' /etc/default/grub
-      # sudo grub-mkconfig -o /boot/grub/grub.cfg
-      # etckeeper_commit "Enable zswap."
+    info "Enabling zswap ..."
+    # Targets GRUB_CMDLINE_LINUX_DEFAULT — performance optimization, not needed in recovery.
+    add_grub_param GRUB_CMDLINE_LINUX_DEFAULT zswap.enabled=1 \
+        "zswap.enabled=1 zswap.compressor=zstd zswap.zpool=z3fold zswap.max_pool_percent=20"
+    sudo grub-mkconfig -o /boot/grub/grub.cfg
+    etckeeper_commit "Enable zswap."
 }
 
 setup_pacman_cache() {
