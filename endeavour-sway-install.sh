@@ -418,7 +418,7 @@ setup_chromebook_audio() {
         git clone https://github.com/WeirdTreeThing/chromebook-linux-audio ~/trees/chromebook-linux-audio
     fi
     cd ~/trees/chromebook-linux-audio
-    echo "WHATEVER IT WANTS ME TO SAY" | ./setup-audio --force-avs-install  # XXX placeholder response
+    echo "I UNDERSTAND THE RISK OF PERMANENTLY DAMAGING MY SPEAKERS" | ./setup-audio --force-avs-install
     cd -
 }
 
@@ -813,8 +813,9 @@ phase3() {
 
     info "=== Phase 3: networking ==="
     sudo tailscale set --operator="$USER"
-    append_once ~/.config/sway/config.d/autostart_applications 'exec tailscale systray'
-    [[ -n "${SWAYSOCK:-}" ]] && tailscale systray &
+    append_once ~/.config/sway/config.d/autostart_applications \
+        'exec sh -c "pkill -f \"tailscale systray\" 2>/dev/null; tailscale systray"'
+    [[ -n "${SWAYSOCK:-}" ]] && { pkill -f "tailscale systray" 2>/dev/null; tailscale systray & }
     tailscale up
     tailscale set --accept-dns=true
     tailscale set --accept-routes
@@ -861,6 +862,9 @@ phase3() {
     sed -i 's/waybar_htop/waybar_btop/g' ~/.config/sway/config.d/application_defaults
     pkill -USR2 waybar || true
 
+    info "Configuring Foot URL launching ..."
+    sed -i 's|^# launch=xdg-open \${url}$|launch=xdg-open ${url}|' ~/.config/foot/foot.ini
+
     etckeeper_commit "Install development tools."
 
     info "=== Phase 3: cloud storage ==="
@@ -887,13 +891,16 @@ phase3() {
         sudo systemctl enable --now clightd
         append_once ~/.config/sway/config.d/autostart_applications 'exec clight'
         [[ -n "${SWAYSOCK:-}" ]] && clight &
-        ls /sys/class/leds/ | grep -i kbd || true
-        brightnessctl --list | grep -i kbd || true
-        # XXX replace 'your-device-here' with detected device name from above
-        # brightnessctl --device='your-device-here' set 50%
-        # XXX keyboard brightness sway bindings (edit smc::kbd_backlight device name first):
-        # sed -i '/XF86MonBrightnessDown/a\        XF86KbdBrightnessUp exec brightnessctl -d smc::kbd_backlight set +5%\n        XF86KbdBrightnessDown exec brightnessctl -d smc::kbd_backlight set 5%-' \
-        #     ~/.config/sway/config.d/default
+        local kbd_dev
+        kbd_dev=$(brightnessctl --list 2>/dev/null | awk -F"'" '/[Kk]eyboard/{print $2; exit}')
+        if [[ -n "$kbd_dev" ]]; then
+            info "Keyboard backlight device: ${kbd_dev}"
+            brightnessctl --device="$kbd_dev" set 50%
+            sed -i "/XF86MonBrightnessDown/a\\        XF86KbdBrightnessUp exec brightnessctl -d '${kbd_dev}' set +5%\\n        XF86KbdBrightnessDown exec brightnessctl -d '${kbd_dev}' set 5%-" \
+                ~/.config/sway/config.d/default
+        else
+            accumulate_warning "No keyboard backlight device found — skipping kbd brightness bindings."
+        fi
         ls /sys/bus/iio/devices/*/in_illuminance* || true
         # XXX what about autotuned screen brightness on ThinkPad?
         # XXX what about backlit keys on HP? autotuned clight?

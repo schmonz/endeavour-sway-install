@@ -2,9 +2,7 @@
 
 ## Stubs / placeholders needing real implementations
 
-- **`setup_chromebook_audio`** (line 421): `echo "WHATEVER IT WANTS ME TO SAY"` is a literal placeholder — find the actual interactive prompt from `setup-audio --force-avs-install` and answer it correctly, or make it non-interactive.
-
-- **`setup_mac_light_sensors`**: sensor floor implemented (ac/batt regression points → 0.10 minimum). Still needed: dimmer module config (40% target, 60s battery timeout) — verify exact key names against `man clight` or `/usr/share/clight/modules.conf.d/` on a live machine before writing.
+- **`setup_mac_light_sensors`**: sensor floor done. Still needed: dimmer module config (40% target, 60s battery timeout) — verify exact key names against `man clight` or `/usr/share/clight/modules.conf.d/` on a live machine before writing.
 
 - **`setup_pacman_cache`** (line 492): calls `etckeeper_commit` but never actually sets up paccache. Add `systemctl enable --now paccache.timer` (from `pacman-contrib`).
 
@@ -24,11 +22,9 @@
 - Decide: snapper instead of / in addition to Timeshift? Does snapper integrate with pacman hooks?
 
 ### Networking (lines 804–813)
-- Tailscale systray multiplication on re-login — investigate and fix (likely needs `--replace` or a `WantedBy` fix).
 - Tailscale exit node misconfigured ("cannot relay traffic") — investigate admin console.
 - LocalSend: configure to use real system hostname instead of default.
-- T60: test `sudo pacman -S vulkan-radeon` for the GL context error.
-- Clickable URLs in Foot terminal — investigate `xdg-open` / `url-launcher` config.
+- LocalSend: run with special env vars on T60 (which ones were they again?) to work around ancient video hardware, I think by doing GL in software?
 
 ### Screen sharing (line 832)
 - Confirm whether Zoom screen sharing actually works under Sway/wlroots (xdg-desktop-portal-wlr). Document result.
@@ -37,9 +33,7 @@
 - Determine `eos-update-notifier` timer frequency.
 - Decide whether to surface notifications in Waybar; implement if yes.
 
-### MacBook-specific (lines 874–879)
-- Detect keyboard backlight device name dynamically instead of placeholder `'your-device-here'`.
-- Uncomment and finalize the `brightnessctl` keyboard-brightness Sway bindings.
+### MacBook-specific
 - Investigate autotuned screen brightness for ThinkPad (clight or similar).
 
 ### General UX / cosmetics (end of phase3)
