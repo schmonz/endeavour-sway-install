@@ -923,10 +923,9 @@ phase3() {
         claude-code claude-desktop-bin claude-cowork-service
 
     info "=== Phase 3: timeshift ==="
-    pacman_install grub-btrfs snapper inotify-tools
+    pacman_install grub-btrfs
     sudo systemctl enable --now cronie
     # XXX CLI equivalent: open the Timeshift app and follow the prompts
-    # XXX snapper also? instead? does it integrate with pacman too?
     etckeeper_commit "Enable Timeshift."
     setup_pacman_cache
 
