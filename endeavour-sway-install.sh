@@ -95,7 +95,7 @@ append_once() {
     grep -qF "$line" "$file" 2>/dev/null || printf '%s\n' "$line" >> "$file"
 }
 
-pacman_install() { _sudo pacman -S --noconfirm "$@"; }
+pacman_install() { _sudo pacman -S --noconfirm --needed "$@"; }
 aur_install()    { yay -S --noconfirm "$@"; }
 
 # Register CMD in the Sway autostart config and launch it now if in a session.
