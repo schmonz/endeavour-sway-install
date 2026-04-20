@@ -100,79 +100,153 @@ append_once() {
 # All default false. detect_machine() sets whichever apply.
 # Phase logic keys on these flags, never on a machine-name string.
 
-DISABLE_SLEEP=false        # mask all suspend/sleep targets (chromebook)
-ACPI_LID_POLL=false        # poll /proc/acpi for lid; EC never fires events (chromebook)
-POWER_KEY_UDEV_STRIP=false # strip power-switch udev tag so logind releases grab (thinkpad)
+DISABLE_SLEEP=false        # mask all suspend/sleep targets
+ACPI_LID_POLL=false        # poll /proc/acpi for lid; EC never fires events
+POWER_KEY_UDEV_STRIP=false # strip power-switch udev tag so logind releases grab
 SWAY_POWER_KEY=false       # add XF86PowerOff bindsym in Sway config
 CHROMEBOOK_AUDIO=false     # run chromebook-linux-audio AVS setup
 CHROMEBOOK_FKEYS=false     # install cros-keyboard-map
 AMBIENT_LIGHT_SENSOR=false # install iio-sensor-proxy + clight, enable clightd
 KBD_BACKLIGHT=false        # auto-detect keyboard backlight and add Sway bindings
 NEEDS_MBPFAN=false         # install + enable mbpfan
-HAS_FACETIMEHD=false       # install facetimehd-dkms (MacBookAir FaceTime HD webcam)
-PHANTOM_LVDS2=false        # disable phantom second internal display (MacBookPro5,2)
+HAS_FACETIMEHD=false       # install facetimehd-dkms (FaceTime HD webcam)
+PHANTOM_LVDS2=false        # disable phantom second internal display
 NEEDS_ZSWAP=false          # enable zswap in GRUB_CMDLINE_LINUX_DEFAULT
-HAS_IR_RECEIVER=false      # set up LIRC infrared receiver (T60)
+HAS_IR_RECEIVER=false      # set up LIRC infrared receiver
 THINKPAD_GOODIES=false     # ThinkPad-specific: smart card, buttons, fingerprint
-NEEDS_SOFTWARE_GL=false    # set LIBGL_ALWAYS_SOFTWARE=1 (T60: modern GL unsupported)
+NEEDS_SOFTWARE_GL=false    # set LIBGL_ALWAYS_SOFTWARE=1 (GPU can't handle modern GL)
 HAS_WEBCAM=false           # install guvcview (TODO: detect actual webcam presence)
 
+report_capabilities() {
+    local fmt='  %-34s %s\n'
+    local text
+    text="Hardware capability detection (verify these look right for this machine):"$'\n'
+    text+=$(printf "$fmt" "DISABLE_SLEEP=$DISABLE_SLEEP"               "mask all sleep/suspend targets")
+    text+=$(printf "$fmt" "ACPI_LID_POLL=$ACPI_LID_POLL"               "poll /proc/acpi for lid (EC silent)")
+    text+=$(printf "$fmt" "POWER_KEY_UDEV_STRIP=$POWER_KEY_UDEV_STRIP" "strip power-switch udev tag")
+    text+=$(printf "$fmt" "SWAY_POWER_KEY=$SWAY_POWER_KEY"             "XF86PowerOff bindsym in Sway")
+    text+=$(printf "$fmt" "CHROMEBOOK_FKEYS=$CHROMEBOOK_FKEYS"         "cros-keyboard-map")
+    text+=$(printf "$fmt" "CHROMEBOOK_AUDIO=$CHROMEBOOK_AUDIO"         "chromebook-linux-audio AVS setup")
+    text+=$(printf "$fmt" "AMBIENT_LIGHT_SENSOR=$AMBIENT_LIGHT_SENSOR" "iio-sensor-proxy + clight")
+    text+=$(printf "$fmt" "KBD_BACKLIGHT=$KBD_BACKLIGHT"               "keyboard backlight auto-setup")
+    text+=$(printf "$fmt" "NEEDS_MBPFAN=$NEEDS_MBPFAN"                 "mbpfan Mac fan control")
+    text+=$(printf "$fmt" "HAS_FACETIMEHD=$HAS_FACETIMEHD"             "facetimehd-dkms")
+    text+=$(printf "$fmt" "PHANTOM_LVDS2=$PHANTOM_LVDS2"               "disable phantom LVDS-2 display")
+    text+=$(printf "$fmt" "NEEDS_ZSWAP=$NEEDS_ZSWAP"                   "enable zswap")
+    text+=$(printf "$fmt" "HAS_IR_RECEIVER=$HAS_IR_RECEIVER"           "LIRC infrared")
+    text+=$(printf "$fmt" "THINKPAD_GOODIES=$THINKPAD_GOODIES"         "ThinkPad smart card/buttons/fingerprint")
+    text+=$(printf "$fmt" "NEEDS_SOFTWARE_GL=$NEEDS_SOFTWARE_GL"       "LIBGL_ALWAYS_SOFTWARE=1")
+    text+=$(printf "$fmt" "HAS_WEBCAM=$HAS_WEBCAM"                     "guvcview")
+    text+="If any flag looks wrong, improve its probe in detect_machine()."
+    info "$text"
+    # In root phases (1 and 2): also write to warnings file so user sees it on first login.
+    [[ $EUID -eq 0 ]] && echo "$text" >> "$WARNINGS_FILE"
+}
+
 detect_machine() {
-    local vendor product bios
+    local vendor product bios input_dir name phys hwmon total_mem_kb
     vendor=$(_sudo dmidecode -s system-manufacturer 2>/dev/null || true)
     product=$(_sudo dmidecode -s system-product-name 2>/dev/null || true)
     bios=$(_sudo dmidecode -s bios-version 2>/dev/null || true)
 
-    if [[ "$vendor" == "Google" && "$bios" == MrChromebox* ]]; then
-        DISABLE_SLEEP=true
-        ACPI_LID_POLL=true
-        SWAY_POWER_KEY=true
-        CHROMEBOOK_AUDIO=true
-        CHROMEBOOK_FKEYS=true
-        HAS_WEBCAM=true
-        info "Detected: Chromebook (MrChromebox) — ${product:-unknown}"
+    # DISABLE_SLEEP: MrChromebox firmware = Chromebook with broken suspend/resume.
+    [[ "$bios" == MrChromebox* ]] && DISABLE_SLEEP=true
 
-    elif [[ "$vendor" == "Apple Inc." ]]; then
-        AMBIENT_LIGHT_SENSOR=true
-        KBD_BACKLIGHT=true
-        NEEDS_MBPFAN=true
-        NEEDS_ZSWAP=true
-        SWAY_POWER_KEY=true
-        HAS_WEBCAM=true
-        case "$product" in
-            MacBookPro5,2)
-                PHANTOM_LVDS2=true
-                ;;
-            MacBookAir7,1)
-                HAS_FACETIMEHD=true
-                ;;
-            *)
-                accumulate_warning "Unrecognised Apple product '${product}'. Add it to detect_machine()."
-                ;;
-        esac
-        info "Detected: Apple Mac — ${product:-unknown}"
-
-    elif [[ "$vendor" == "LENOVO" ]] && echo "$product" | grep -qi "ThinkPad\|2623P3U\|20HMS6VR00"; then
-        POWER_KEY_UDEV_STRIP=true
-        SWAY_POWER_KEY=true
-        THINKPAD_GOODIES=true
-        NEEDS_ZSWAP=true
-        HAS_WEBCAM=true
-        case "$product" in
-            *T60*|*2623*)
-                HAS_IR_RECEIVER=true
-                NEEDS_SOFTWARE_GL=true
-                ;;
-            *X270*|*20HMS6VR00*)
-                KBD_BACKLIGHT=true
-                ;;
-        esac
-        info "Detected: ThinkPad — ${product:-unknown}"
-
-    else
-        accumulate_warning "Unrecognised machine (vendor='${vendor}' product='${product}'). Add it to detect_machine()."
-        info "Detected: unknown machine — vendor='${vendor}' product='${product:-unknown}'"
+    # ACPI_LID_POLL: lid ACPI node exists but no input device is named "Lid Switch"
+    # (EC handles the event in hardware, never generating kernel input events).
+    if [[ -f /proc/acpi/button/lid/LID0/state ]]; then
+        if ! grep -rql "Lid Switch" /sys/class/input/input*/name 2>/dev/null; then
+            ACPI_LID_POLL=true
+        fi
     fi
+
+    # POWER_KEY_UDEV_STRIP: LNXPWRBN power button still carries the power-switch
+    # udev tag, meaning logind holds an exclusive grab that blocks Sway.
+    for input_dir in /sys/class/input/input*/; do
+        name=$(cat "${input_dir}name" 2>/dev/null || true)
+        phys=$(cat "${input_dir}phys" 2>/dev/null || true)
+        if [[ "$name" == "Power Button" && "$phys" == *LNXPWRBN* ]]; then
+            for evdir in "${input_dir}"event*/; do
+                if _sudo udevadm info "/dev/input/$(basename "$evdir")" 2>/dev/null \
+                   | grep -q "power-switch"; then
+                    POWER_KEY_UDEV_STRIP=true
+                fi
+            done
+        fi
+    done
+
+    # SWAY_POWER_KEY: any input device named "Power Button" is present.
+    for input_dir in /sys/class/input/input*/; do
+        if [[ "$(cat "${input_dir}name" 2>/dev/null)" == "Power Button" ]]; then
+            SWAY_POWER_KEY=true; break
+        fi
+    done
+
+    # CHROMEBOOK_FKEYS + CHROMEBOOK_AUDIO: Chrome EC present = Chromebook hardware.
+    if [[ -d /sys/class/chromeos/cros_ec ]] || [[ -e /dev/cros_ec ]]; then
+        CHROMEBOOK_FKEYS=true
+        CHROMEBOOK_AUDIO=true
+    fi
+
+    # AMBIENT_LIGHT_SENSOR: IIO illuminance sensor visible in sysfs.
+    if ls /sys/bus/iio/devices/*/in_illuminance* 2>/dev/null | grep -q .; then
+        AMBIENT_LIGHT_SENSOR=true
+    fi
+
+    # KBD_BACKLIGHT: keyboard backlight LED device in sysfs.
+    if ls /sys/class/leds/ 2>/dev/null | grep -qiE "kbd|keyboard"; then
+        KBD_BACKLIGHT=true
+    fi
+
+    # NEEDS_MBPFAN: Apple SMC hardware monitor (applesmc) present.
+    for hwmon in /sys/class/hwmon/hwmon*/name; do
+        if grep -q "applesmc" "$hwmon" 2>/dev/null; then
+            NEEDS_MBPFAN=true; break
+        fi
+    done
+
+    # HAS_FACETIMEHD: Broadcom FaceTime HD camera (PCIe ID 14e4:1570).
+    if _sudo lspci -n 2>/dev/null | grep -q "14e4:1570"; then
+        HAS_FACETIMEHD=true
+    fi
+
+    # PHANTOM_LVDS2: second internal LVDS output enumerated by DRM.
+    # Requires GPU driver to be loaded — may be false during phase 1 chroot.
+    if ls /sys/class/drm/ 2>/dev/null | grep -q "LVDS-2"; then
+        PHANTOM_LVDS2=true
+    fi
+
+    # NEEDS_ZSWAP: total RAM under 8 GiB.
+    total_mem_kb=$(awk '/MemTotal/{print $2}' /proc/meminfo 2>/dev/null || echo 0)
+    (( total_mem_kb > 0 && total_mem_kb < 8*1024*1024 )) && NEEDS_ZSWAP=true
+
+    # HAS_IR_RECEIVER: LIRC character device present.
+    if ls /dev/lirc* 2>/dev/null | grep -q .; then
+        HAS_IR_RECEIVER=true
+    fi
+
+    # THINKPAD_GOODIES: Lenovo ThinkPad SMBIOS — TrackPoint buttons, smart card,
+    # ThinkVantage button, fingerprint reader are ThinkPad-specific.
+    if [[ "$vendor" == "LENOVO" ]] && echo "$product" | grep -qi "ThinkPad"; then
+        THINKPAD_GOODIES=true
+    fi
+
+    # NEEDS_SOFTWARE_GL: ATI R430 GPU (Mobility Radeon X1xxx, PCI 1002:5b6x) —
+    # cannot drive modern OpenGL; requires llvmpipe via LIBGL_ALWAYS_SOFTWARE=1.
+    if _sudo lspci -n 2>/dev/null | grep -q "1002:5b6"; then
+        NEEDS_SOFTWARE_GL=true
+    fi
+
+    # HAS_WEBCAM: V4L2 device present, or FaceTime HD PCIe camera detected.
+    # Note: driver-backed /dev/video* may not exist until after first reboot
+    # (e.g. facetimehd-dkms just installed); lspci covers that gap.
+    if ls /dev/video* 2>/dev/null | grep -q . || \
+       ls /sys/class/video4linux/ 2>/dev/null | grep -q . || \
+       _sudo lspci -n 2>/dev/null | grep -q "14e4:1570"; then
+        HAS_WEBCAM=true
+    fi
+
+    report_capabilities
 }
 
 # First real user account (uid 1000–65533); used by phases 1 and 2.

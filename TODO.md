@@ -54,3 +54,8 @@
 ## Phase 2 minor note
 
 - Line 716: `--needed` flag for pacman (skip already-installed) — decide if any `pacman -S` calls here should use it.
+
+## Code maintainability
+
+- Extract helper functions for installing Arch packages, installing AUR packages, whatever else is duplicated (even if one line) and can be turned into an expression of intent
+- Add automated tests for each of our feature detections, so we can safely extend detection later when needed without breaking anything. We'll need automation for collecting command output so we can run it once on each machine now and again periodically in the future, in case dmesg or whatever output changes. Then we'll test against the frozen specimens and make sure we detect each known case correctly
