@@ -1,15 +1,5 @@
 # endeavour-sway-install.sh — outstanding items
 
-## Bugs / syntax errors
-
-- **Line 599**: backslash-then-comment breaks the `pacman -S` heredoc line:
-  ```
-  system-config-printer \  # XXX other cups goodies the installer was offering?
-  ```
-  The `\` must be on its own (no trailing comment). Fix: move the comment to the line above, or determine the correct cups packages and add them.
-
-- **Warnings not delivered**: `WARNINGS_FILE` writes to `/root/endeavour-setup-warnings.txt` but `install_warnings_displayer` looks for `${target_home}/.config/endeavour-warnings`. The file is never copied between these paths, so accumulated warnings are never shown to the user.
-
 ## Stubs / placeholders needing real implementations
 
 - **`setup_chromebook_audio`** (line 421): `echo "WHATEVER IT WANTS ME TO SAY"` is a literal placeholder — find the actual interactive prompt from `setup-audio --force-avs-install` and answer it correctly, or make it non-interactive.

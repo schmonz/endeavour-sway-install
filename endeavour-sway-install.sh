@@ -596,7 +596,8 @@ phase1() {
         seahorse \
         fwupd \
         discord signal-desktop \
-        libreoffice-fresh abiword cups cups-browsed system-config-printer \  # XXX other cups goodies the installer was offering?
+        # XXX other cups goodies the installer was offering?
+        libreoffice-fresh abiword cups cups-browsed system-config-printer \
         xdg-desktop-portal xdg-desktop-portal-wlr \
         steam prismlauncher \
         eos-update-notifier \
@@ -731,6 +732,10 @@ phase2() {
     etckeeper commit -m 'endeavour-sway: phase-2 first-boot config.' 2>/dev/null || true
 
     info "=== Phase 2: warnings displayer ==="
+    if [[ -f "$WARNINGS_FILE" ]]; then
+        install -D -o "$target_user" "$WARNINGS_FILE" "${target_home}/.config/endeavour-warnings"
+        rm -f "$WARNINGS_FILE"
+    fi
     install_warnings_displayer "$target_home"
 
     info ""
