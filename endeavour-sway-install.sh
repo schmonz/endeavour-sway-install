@@ -449,9 +449,8 @@ setup_mac_light_sensors() {
 
 setup_webcam() {
     info "Setting up webcam ..."
-    # FaceTime webcam (e.g. MacBookAir7,1)
-    # facetimehd-dkms installed via yay above
-    sudo modprobe  # XXX missing module name
+    # FaceTime webcam (e.g. MacBookAir7,1): facetimehd-dkms installed via yay above;
+    # udev auto-loads the module on next boot via modalias.
     # iSight webcam — not sure who needs this:
     # yay -S --noconfirm isight-firmware
     sudo pacman -S --noconfirm guvcview
@@ -490,8 +489,10 @@ setup_zswap() {
 }
 
 setup_pacman_cache() {
-    # XXX CLI equivalent for "Package Cleanup Configuration" from the Welcome screen
-    # (that GUI creates paccache.service + paccache.timer)
+    # XXX run the Welcome app's "Package Cleanup Configuration" once on a live machine
+    # and record exactly what it installs/enables before implementing this.
+    # It likely does more than plain `pacman-contrib` + `paccache.timer` (e.g. keeps-N
+    # config, pacman transaction hooks via paccache-service-manager AUR package).
     etckeeper_commit "Periodically clean pacman cache."
 }
 

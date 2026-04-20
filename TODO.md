@@ -6,8 +6,6 @@
 
 - **`setup_mac_light_sensors`** (line 443): empty stub. Decide between lightum, macbook-lighter, pommed-light, or clight; implement or drop.
 
-- **`setup_webcam`** (line 454): `sudo modprobe  # XXX missing module name` — fill in the facetimehd module name (`facetimehd`).
-
 - **`setup_pacman_cache`** (line 492): calls `etckeeper_commit` but never actually sets up paccache. Add `systemctl enable --now paccache.timer` (from `pacman-contrib`).
 
 - **`setup_power_saving`** (line 498): empty stub. Decide on TLP vs. power-profiles-daemon and implement.
