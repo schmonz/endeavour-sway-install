@@ -95,8 +95,26 @@ append_once() {
     grep -qF "$line" "$file" 2>/dev/null || printf '%s\n' "$line" >> "$file"
 }
 
-pacman_install() { _sudo pacman -S --noconfirm --needed "$@"; }
-aur_install()    { yay -S --noconfirm "$@"; }
+pacman_install()    { _sudo pacman -S --noconfirm --needed "$@"; }
+aur_install()       { yay -S --noconfirm "$@"; }
+system_systemctl() {
+    local yes_now=true
+    [[ "${1:-}" == "--not-now" ]] && { yes_now=false; shift; }
+    if [[ "${1:-}" == "enable" ]] && $yes_now; then
+        _sudo systemctl enable --now "${@:2}"
+    else
+        _sudo systemctl "$@"
+    fi
+}
+user_systemctl() {
+    local yes_now=true
+    [[ "${1:-}" == "--not-now" ]] && { yes_now=false; shift; }
+    if [[ "${1:-}" == "enable" ]] && $yes_now; then
+        systemctl --user enable --now "${@:2}"
+    else
+        systemctl --user "$@"
+    fi
+}
 
 # Register CMD in the Sway autostart config and launch it now if in a session.
 # Pass pkill=true to kill any prior instance first (for systray singletons).
@@ -321,7 +339,7 @@ HandlePowerKeyLongPress=ignore"
 
     info "Masking sleep/suspend/hibernate targets ..."
     # systemctl mask creates /dev/null symlinks — works in chroot and live system.
-    _sudo systemctl mask \
+    system_systemctl mask \
         hibernate.target \
         hybrid-sleep.target \
         sleep.target \
@@ -341,12 +359,12 @@ EOF
 
 restart_logind() {
     info "Restarting systemd-logind ..."
-    _sudo systemctl restart systemd-logind
+    system_systemctl restart systemd-logind
     # greetd depends on logind; restart it so the login prompt comes back up.
-    if _sudo systemctl is-active --quiet greetd 2>/dev/null \
-       || _sudo systemctl is-failed --quiet greetd 2>/dev/null; then
+    if system_systemctl is-active --quiet greetd 2>/dev/null \
+       || system_systemctl is-failed --quiet greetd 2>/dev/null; then
         info "Restarting greetd ..."
-        _sudo systemctl restart greetd
+        system_systemctl restart greetd
     fi
 }
 
@@ -533,11 +551,11 @@ RestartSec=1
 WantedBy=graphical-session.target
 SERVICE
 
-    systemctl --user daemon-reload
-    systemctl --user enable sway-lid-handler.service
+    user_systemctl daemon-reload
+    user_systemctl --not-now enable sway-lid-handler.service
     # Only start now if we're in a graphical session; otherwise it starts at login.
     if [[ -n "${SWAYSOCK:-}" ]]; then
-        systemctl --user restart sway-lid-handler.service
+        user_systemctl restart sway-lid-handler.service
         info "Service enabled and started."
     else
         info "Service enabled (will start at next Sway login)."
@@ -578,7 +596,7 @@ setup_mac_fan() {
     info "Installing mbpfan ..."
     aur_install mbpfan
     sudo cp /usr/lib/systemd/system/mbpfan.service /etc/systemd/system/
-    sudo systemctl enable --now mbpfan.service
+    system_systemctl enable mbpfan.service
     etckeeper_commit "Enable mbpfan Mac fan control."
 }
 
@@ -696,7 +714,7 @@ StandardError=journal
 WantedBy=multi-user.target
 EOF
 
-    systemctl enable endeavour-sway-firstboot.service
+    system_systemctl --not-now enable endeavour-sway-firstboot.service
     info "First-boot service installed and enabled."
     info "Script saved to ${INSTALL_SCRIPT_DEST} — call with --phase 3 after first login."
 }
@@ -866,11 +884,11 @@ phase2() {
     ln -sf "${target_home}/trees/dotfiles/gitconfig" /root/.gitconfig || true
 
     info "=== Phase 2: systemctl enables ==="
-    systemctl enable --now bluetooth
+    system_systemctl enable bluetooth
     # XXX what's --needed (skips already-installed packages)
     # bluetoothctl pairing: https://wiki.archlinux.org/title/Bluetooth#Pairing
-    systemctl enable --now tailscaled
-    systemctl enable --now systemd-resolved
+    system_systemctl enable tailscaled
+    system_systemctl enable systemd-resolved
 
     info "=== Phase 2: firewall (daemon now running) ==="
     firewall-cmd --set-default-zone=home || true
@@ -924,7 +942,7 @@ phase3() {
 
     info "=== Phase 3: timeshift ==="
     pacman_install grub-btrfs
-    sudo systemctl enable --now cronie
+    system_systemctl enable cronie
     # XXX CLI equivalent: open the Timeshift app and follow the prompts
     etckeeper_commit "Enable Timeshift."
     setup_pacman_cache
@@ -1016,7 +1034,7 @@ phase3() {
 
     if $AMBIENT_LIGHT_SENSOR; then
         aur_install iio-sensor-proxy clight
-        sudo systemctl enable --now clightd
+        system_systemctl enable clightd
         sway_autostart_and_also_start_now 'clight'
         ls /sys/bus/iio/devices/*/in_illuminance* || true
         setup_mac_light_sensors
@@ -1036,7 +1054,7 @@ phase3() {
     fi
 
     $NEEDS_MBPFAN    && setup_mac_fan
-    $HAS_FACETIMEHD  && yay -S --noconfirm facetimehd-dkms
+    $HAS_FACETIMEHD  && aur_install facetimehd-dkms
     $HAS_WEBCAM      && setup_webcam
     $PHANTOM_LVDS2 && setup_nvidia_display
     $NEEDS_ZSWAP   && setup_zswap
