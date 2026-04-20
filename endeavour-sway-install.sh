@@ -52,6 +52,8 @@ set -euo pipefail
 WARNINGS_FILE="/root/endeavour-setup-warnings.txt"
 INSTALL_SCRIPT_DEST="/usr/local/bin/endeavour-sway-install.sh"
 FIRSTBOOT_SERVICE="/etc/systemd/system/endeavour-sway-firstboot.service"
+SELF_URL="https://raw.githubusercontent.com/schmonz/endeavour-sway-install/main/endeavour-sway-install.sh"
+SWAY_CE_URL="https://raw.githubusercontent.com/EndeavourOS-Community-Editions/sway/main/setup_sway_isomode.bash"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -499,7 +501,12 @@ setup_thinkpad_goodies() {
 
 install_firstboot_service() {
     info "Installing ${FIRSTBOOT_SERVICE} ..."
-    cp "$0" "$INSTALL_SCRIPT_DEST"
+    if [[ -f "$0" ]]; then
+        cp "$0" "$INSTALL_SCRIPT_DEST"
+    else
+        # Piped via curl | bash — $0 is not a real file; fetch the script directly.
+        curl -fsSL "$SELF_URL" -o "$INSTALL_SCRIPT_DEST"
+    fi
     chmod +x "$INSTALL_SCRIPT_DEST"
 
     cat > "$FIRSTBOOT_SERVICE" << EOF
@@ -893,22 +900,45 @@ phase3() {
     # XXX desktop picture showing the hostname
 }
 
+# ── Phase detection ───────────────────────────────────────────────────────────
+
+detect_phase() {
+    if [[ $EUID -ne 0 ]] || [[ -n "${SWAYSOCK:-}" ]]; then
+        echo 3
+    elif [[ "$(cat /proc/1/comm 2>/dev/null)" != "systemd" ]]; then
+        echo 1   # chroot — systemd is not PID 1
+    else
+        echo 2   # first boot — systemd running, no user session
+    fi
+}
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 main() {
-    local phase=""
+    local phase="" from_installer=false
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --phase) phase="${2:-}"; shift 2 ;;
-            *) die "Unknown argument: $1. Usage: $0 --phase 1|2|3" ;;
+            *) die "Unknown argument: $1. Usage: $0 [--phase 1|2|3]" ;;
         esac
     done
 
-    [[ -n "$phase" ]] || die "Usage: $0 --phase 1|2|3"
+    if [[ -z "$phase" ]]; then
+        phase=$(detect_phase)
+        # No explicit --phase means we were invoked directly (e.g. curl | bash
+        # from the Welcome app). Run the Sway CE baseline before phase 1.
+        [[ "$phase" == "1" ]] && from_installer=true
+    fi
 
     case "$phase" in
-        1) phase1 ;;
+        1)
+            if $from_installer; then
+                info "Fetching Sway CE baseline ..."
+                curl -fsSL "$SWAY_CE_URL" | bash
+            fi
+            phase1
+            ;;
         2) phase2 ;;
         3) phase3 ;;
         *) die "Unknown phase '${phase}'. Must be 1, 2, or 3." ;;
