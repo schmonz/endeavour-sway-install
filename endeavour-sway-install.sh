@@ -95,6 +95,29 @@ append_once() {
     grep -qF "$line" "$file" 2>/dev/null || printf '%s\n' "$line" >> "$file"
 }
 
+pacman_install() { _sudo pacman -S --noconfirm "$@"; }
+aur_install()    { yay -S --noconfirm "$@"; }
+
+# Register CMD in the Sway autostart config and launch it now if in a session.
+# Pass pkill=true to kill any prior instance first (for systray singletons).
+sway_autostart_and_also_start_now() {
+    local cmd="$1" pkill="${2:-false}"
+    local line
+    if $pkill; then
+        line="exec sh -c \"pkill -f '$cmd' 2>/dev/null; $cmd\""
+    else
+        line="exec $cmd"
+    fi
+    append_once ~/.config/sway/config.d/autostart_applications "$line"
+    if [[ -n "${SWAYSOCK:-}" ]]; then
+        $pkill && pkill -f "$cmd" 2>/dev/null
+        eval "$cmd" &
+    fi
+}
+
+# Clone URL into DIR only if DIR doesn't already exist.
+clone_if_missing() { local url="$1" dir="$2"; [[ -d "$dir" ]] || git clone "$url" "$dir"; }
+
 # ── Machine capability flags ──────────────────────────────────────────────────
 #
 # All default false. detect_machine_capabilities() sets whichever apply.
@@ -537,9 +560,7 @@ EOF
 
 setup_chromebook_audio() {
     info "Setting up Chromebook audio ..."
-    if [[ ! -d ~/trees/chromebook-linux-audio ]]; then
-        git clone https://github.com/WeirdTreeThing/chromebook-linux-audio ~/trees/chromebook-linux-audio
-    fi
+    clone_if_missing https://github.com/WeirdTreeThing/chromebook-linux-audio ~/trees/chromebook-linux-audio
     cd ~/trees/chromebook-linux-audio
     echo "I UNDERSTAND THE RISK OF PERMANENTLY DAMAGING MY SPEAKERS" | ./setup-audio --force-avs-install
     cd -
@@ -547,9 +568,7 @@ setup_chromebook_audio() {
 
 setup_chromebook_fkeys() {
     info "Setting up Chromebook F-keys ..."
-    if [[ ! -d ~/trees/cros-keyboard-map ]]; then
-        git clone https://github.com/WeirdTreeThing/cros-keyboard-map ~/trees/cros-keyboard-map
-    fi
+    clone_if_missing https://github.com/WeirdTreeThing/cros-keyboard-map ~/trees/cros-keyboard-map
     cd ~/trees/cros-keyboard-map
     ./install.sh
     cd -
@@ -557,7 +576,7 @@ setup_chromebook_fkeys() {
 
 setup_mac_fan() {
     info "Installing mbpfan ..."
-    yay -S --noconfirm mbpfan
+    aur_install mbpfan
     sudo cp /usr/lib/systemd/system/mbpfan.service /etc/systemd/system/
     sudo systemctl enable --now mbpfan.service
     etckeeper_commit "Enable mbpfan Mac fan control."
@@ -589,7 +608,7 @@ setup_webcam() {
     # udev auto-loads the module on next boot via modalias.
     # iSight webcam — not sure who needs this:
     # yay -S --noconfirm isight-firmware
-    sudo pacman -S --noconfirm guvcview
+    pacman_install guvcview
 }
 
 # Idempotently add PARAMS to grub variable VAR, guarded by CHECK already present.
@@ -725,8 +744,7 @@ phase1() {
     detect_machine_capabilities
 
     info "=== Phase 1: pacman installs ==="
-    pacman -Syuu --noconfirm
-    pacman -S --noconfirm \
+    pacman_install \
         etckeeper git git-delta \
         blueman \
         gvfs-dnssd tailscale \
@@ -887,7 +905,7 @@ phase3() {
     lspci | grep -i vga || true
 
     info "=== Phase 3: yay installs (common) ==="
-    yay -S --noconfirm \
+    aur_install \
         timeshift-autosnap \
         1password \
         helium-browser-bin ungoogled-chromium-bin webapp-manager \
@@ -905,7 +923,7 @@ phase3() {
         claude-code claude-desktop-bin claude-cowork-service
 
     info "=== Phase 3: timeshift ==="
-    sudo pacman -S --noconfirm grub-btrfs snapper inotify-tools
+    pacman_install grub-btrfs snapper inotify-tools
     sudo systemctl enable --now cronie
     # XXX CLI equivalent: open the Timeshift app and follow the prompts
     # XXX snapper also? instead? does it integrate with pacman too?
@@ -928,14 +946,11 @@ phase3() {
     # swaymsg_reload
 
     info "=== Phase 3: passwords ==="
-    append_once ~/.config/sway/config.d/autostart_applications 'exec 1password'
-    [[ -n "${SWAYSOCK:-}" ]] && 1password &
+    sway_autostart_and_also_start_now '1password'
 
     info "=== Phase 3: networking ==="
     sudo tailscale set --operator="$USER"
-    append_once ~/.config/sway/config.d/autostart_applications \
-        'exec sh -c "pkill -f \"tailscale systray\" 2>/dev/null; tailscale systray"'
-    [[ -n "${SWAYSOCK:-}" ]] && { pkill -f "tailscale systray" 2>/dev/null; tailscale systray & }
+    sway_autostart_and_also_start_now 'tailscale systray' true
     tailscale up
     tailscale set --accept-dns=true
     tailscale set --accept-routes
@@ -943,8 +958,7 @@ phase3() {
     # XXX maybe exit node also isn't working? admin console says:
     # XXX   "This machine is misconfigured and cannot relay traffic."
     # XXX but maybe that's enough for Plex (or Jellyfin)
-    append_once ~/.config/sway/config.d/autostart_applications 'exec localsend --hidden'
-    [[ -n "${SWAYSOCK:-}" ]] && localsend --hidden &
+    sway_autostart_and_also_start_now 'localsend --hidden'
     # XXX configure LocalSend to use the real system hostname
     info "Log out and back in for Thunar Network view to show shares."
 
@@ -1002,10 +1016,9 @@ phase3() {
     fi
 
     if $AMBIENT_LIGHT_SENSOR; then
-        yay -S --noconfirm iio-sensor-proxy clight
+        aur_install iio-sensor-proxy clight
         sudo systemctl enable --now clightd
-        append_once ~/.config/sway/config.d/autostart_applications 'exec clight'
-        [[ -n "${SWAYSOCK:-}" ]] && clight &
+        sway_autostart_and_also_start_now 'clight'
         ls /sys/bus/iio/devices/*/in_illuminance* || true
         setup_mac_light_sensors
     fi
