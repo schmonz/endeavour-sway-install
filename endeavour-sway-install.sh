@@ -277,9 +277,9 @@ probe_ir_receiver() {
 # THINKPAD_GOODIES: Lenovo ThinkPad SMBIOS — TrackPoint buttons, smart card,
 # ThinkVantage button, fingerprint reader are ThinkPad-specific.
 probe_thinkpad_goodies() {    # args: vendor, product
-    [[ "${1:-}" == "LENOVO" ]] \
-        && echo "${2:-}" | grep -qi "ThinkPad" \
-        && THINKPAD_GOODIES=true || true
+    if [[ "${1:-}" == "LENOVO" ]] && echo "${2:-}" | grep -qi "ThinkPad"; then
+        THINKPAD_GOODIES=true
+    fi
 }
 
 # NEEDS_SOFTWARE_GL: ATI R430 GPU (Mobility Radeon X1xxx, PCI 1002:5b6x) —
