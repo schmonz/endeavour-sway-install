@@ -440,11 +440,23 @@ setup_mac_fan() {
 }
 
 setup_mac_light_sensors() {
-    : # lightum: https://github.com/poliva/lightum
-      # macbook-lighter: https://github.com/harttle/macbook-lighter
-      # pommed: https://packages.debian.org/trixie/pommed
-      # pommed-light: https://github.com/bytbox/pommed-light
-      # Debian Mactel Team: https://qa.debian.org/developer.php?login=team%2Bpkg-mactel-devel%40tracker.debian.org
+    info "Configuring clight sensor floor ..."
+    # clight is installed + started in the macbook block above (iio-sensor-proxy + clightd).
+    # Without a floor, clight maps a dark room to 0% brightness — invisible screen.
+    sudo mkdir -p /etc/clight/modules.conf.d
+    sudo tee /etc/clight/modules.conf.d/sensor.conf > /dev/null << 'EOF'
+// Minimum brightness floor: dark room -> 10% screen, not 0%.
+// Raise toward 0.15-0.20 if 10% still feels too dark.
+ac_regression_points = (0.0, 0.10, 0.20, 0.40, 0.60, 0.80, 1.0);
+batt_regression_points = (0.0, 0.10, 0.20, 0.40, 0.60, 0.80, 1.0);
+EOF
+    # XXX also configure the dimmer module: target 40% (not 0%) after 60s on battery.
+    # Verify exact key names against `man clight` or /usr/share/clight/modules.conf.d/
+    # before writing — likely something like:
+    #   batt_timeouts = (60, 300);
+    #   screen_targets = (0.4, 0.4);
+    # in /etc/clight/modules.conf.d/dimmer.conf
+    etckeeper_commit "Configure clight brightness floor (prevent invisible screen)."
 }
 
 setup_webcam() {

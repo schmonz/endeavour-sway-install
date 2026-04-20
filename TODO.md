@@ -4,7 +4,7 @@
 
 - **`setup_chromebook_audio`** (line 421): `echo "WHATEVER IT WANTS ME TO SAY"` is a literal placeholder — find the actual interactive prompt from `setup-audio --force-avs-install` and answer it correctly, or make it non-interactive.
 
-- **`setup_mac_light_sensors`** (line 443): empty stub. Decide between lightum, macbook-lighter, pommed-light, or clight; implement or drop.
+- **`setup_mac_light_sensors`**: sensor floor implemented (ac/batt regression points → 0.10 minimum). Still needed: dimmer module config (40% target, 60s battery timeout) — verify exact key names against `man clight` or `/usr/share/clight/modules.conf.d/` on a live machine before writing.
 
 - **`setup_pacman_cache`** (line 492): calls `etckeeper_commit` but never actually sets up paccache. Add `systemctl enable --now paccache.timer` (from `pacman-contrib`).
 
