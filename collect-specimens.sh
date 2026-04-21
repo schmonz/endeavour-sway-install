@@ -69,13 +69,16 @@ echo "  OK  udevadm-power-buttons.txt"
 # ── sysfs trees ─────────────────────────────────────────────────────────────
 copy_sysfs_tree() {
     local src="$1"
+    local label="${src#/}"; label="${label//\//-}"   # /sys/class/input → sys-class-input
+    local dest="$DEST/$label"
     if [[ -d "$src" ]]; then
-        cp -a --parents "$src" "$DEST/" 2>/dev/null || true
+        mkdir -p "$dest"
+        cp -a "$src/." "$dest/" 2>/dev/null || true
         local count
-        count=$(find "$DEST$src" 2>/dev/null | wc -l)
-        echo "  OK  $src ($count entries)"
+        count=$(find "$dest" 2>/dev/null | wc -l)
+        echo "  OK  $label ($count entries)"
     else
-        echo "  --  $src (not present)"
+        echo "  --  $label (not present)"
     fi
 }
 
