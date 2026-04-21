@@ -276,8 +276,10 @@ probe_ir_receiver() {
 
 # THINKPAD_GOODIES: Lenovo ThinkPad SMBIOS — TrackPoint buttons, smart card,
 # ThinkVantage button, fingerprint reader are ThinkPad-specific.
-probe_thinkpad_goodies() {    # args: vendor, product
-    if [[ "${1:-}" == "LENOVO" ]] && echo "${2:-}" | grep -qi "ThinkPad"; then
+probe_thinkpad_goodies() {    # args: vendor, product, version
+    if [[ "${1:-}" == "LENOVO" ]] \
+       && { echo "${2:-}" | grep -qi "ThinkPad" \
+            || echo "${3:-}" | grep -qi "ThinkPad"; }; then
         THINKPAD_GOODIES=true
     fi
 }
@@ -302,11 +304,12 @@ probe_has_webcam() {          # arg: lspci -n output
 # ── Capability orchestrator ───────────────────────────────────────────────────
 
 detect_machine_capabilities() {
-    local vendor product bios lspci_out total_mem_kb
+    local vendor product version bios lspci_out total_mem_kb
     local input_dir name phys udev_power_out evdir
 
     vendor=$(_sudo dmidecode -s system-manufacturer 2>/dev/null || true)
     product=$(_sudo dmidecode -s system-product-name 2>/dev/null || true)
+    version=$(_sudo dmidecode -s system-version 2>/dev/null || true)
     bios=$(_sudo dmidecode -s bios-version 2>/dev/null || true)
     lspci_out=$(_sudo lspci -n 2>/dev/null || true)
     total_mem_kb=$(awk '/MemTotal/{print $2}' /proc/meminfo 2>/dev/null || echo 0)
@@ -335,7 +338,7 @@ detect_machine_capabilities() {
     probe_phantom_lvds2
     probe_needs_zswap           "$total_mem_kb"
     probe_ir_receiver
-    probe_thinkpad_goodies      "$vendor" "$product"
+    probe_thinkpad_goodies      "$vendor" "$product" "$version"
     probe_needs_software_gl     "$lspci_out"
     probe_has_webcam            "$lspci_out"
 
@@ -1181,4 +1184,4 @@ main() {
     esac
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then main "$@"; fi
