@@ -988,10 +988,6 @@ phase3() {
         zoom teams-for-linux-electron-bin \
         rclone \
         clion clion-jre \
-        intellij-idea-ultimate-edition \
-        goland goland-jre \
-        webstorm webstorm-jre \
-        pycharm \
         dawn-writer-bin \
         claude-code claude-desktop-bin claude-cowork-service
 
