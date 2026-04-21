@@ -818,6 +818,7 @@ phase1() {
     detect_machine_capabilities
 
     info "=== Phase 1: pacman installs ==="
+    # XXX other cups goodies the installer was offering?
     pacman_install \
         etckeeper git git-delta \
         blueman \
@@ -825,7 +826,6 @@ phase1() {
         seahorse \
         fwupd \
         discord signal-desktop \
-        # XXX other cups goodies the installer was offering?
         libreoffice-fresh abiword cups cups-browsed system-config-printer \
         xdg-desktop-portal xdg-desktop-portal-wlr \
         steam prismlauncher \
