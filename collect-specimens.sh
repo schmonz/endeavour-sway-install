@@ -14,13 +14,12 @@ DEST="$(dirname "$0")/specimens/$SLUG"
 
 mkdir -p "$DEST"
 
-# Write stdin to $DEST/$1 only if non-empty; preserve existing file otherwise.
 save_if_nonempty() {
     local label="$1"
     local tmp; tmp=$(mktemp)
     cat > "$tmp"
     if [[ -s "$tmp" ]]; then
-        cp "$tmp" "$DEST/$label" && rm -f "$tmp"
+        mv "$tmp" "$DEST/$label"
         echo "  OK  $label"
     else
         rm -f "$tmp"
@@ -28,12 +27,11 @@ save_if_nonempty() {
     fi
 }
 
-# Run command; write output to $DEST/$1 on success, preserve existing on failure.
 run() {
     local label="$1"; shift
     local tmp; tmp=$(mktemp)
     if "$@" > "$tmp" 2>&1; then
-        cp "$tmp" "$DEST/$label" && rm -f "$tmp"
+        mv "$tmp" "$DEST/$label"
         echo "  OK  $label"
     else
         rm -f "$tmp"

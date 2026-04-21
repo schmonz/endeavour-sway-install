@@ -50,7 +50,3 @@
 - Pre-populate known WiFi configs in NetworkManager.
 - Swap partition sizing for hibernate (and whether Chromebook needs it differently).
 - Geolocation: decide whether to enable via `xdg-desktop-portal-gtk` or punt entirely.
-
-## Code maintainability
-
-- Add automated tests for each of our feature detections, so we can safely extend detection later when needed without breaking anything. We'll need automation for collecting command output so we can run it once on each machine now and again periodically in the future, in case dmesg or whatever output changes. Then we'll test against the frozen specimens and make sure we detect each known case correctly

@@ -219,7 +219,7 @@ probe_sway_power_key() {
     for input_dir in "${PROBE_ROOT}"/sys/class/input/input*/; do
         [[ "$(cat "${input_dir}name" 2>/dev/null)" == "Power Button" ]] \
             && { SWAY_POWER_KEY=true; return; }
-    done
+    done; true
 }
 
 # CHROMEBOOK_FKEYS + CHROMEBOOK_AUDIO: Chrome EC present = Chromebook hardware.
@@ -248,7 +248,7 @@ probe_needs_mbpfan() {
     local hwmon
     for hwmon in "${PROBE_ROOT}"/sys/class/hwmon/hwmon*/name; do
         grep -q "applesmc" "$hwmon" 2>/dev/null && { NEEDS_MBPFAN=true; return; }
-    done
+    done; true
 }
 
 # HAS_FACETIMEHD: Broadcom FaceTime HD camera (PCIe ID 14e4:1570).
