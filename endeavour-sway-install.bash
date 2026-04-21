@@ -182,7 +182,7 @@ report_capabilities() {
         printf "If any flag looks wrong, improve its probe in detect_machine_capabilities().\n"
     )
     info "$text"
-    [[ $EUID -eq 0 ]] && echo "$text" >> "$WARNINGS_FILE"
+    [[ $EUID -ne 0 ]] || echo "$text" >> "$WARNINGS_FILE"
 }
 
 # ── Hardware probes ───────────────────────────────────────────────────────────
