@@ -1,0 +1,16 @@
+input0	Sleep Button
+input10	HDA Intel PCH Mic
+input11	HDA Intel PCH Dock Mic
+input12	HDA Intel PCH Dock Headphone
+input13	HDA Intel PCH Headphone
+input14	HDA Intel PCH HDMI/DP,pcm=3
+input15	HDA Intel PCH HDMI/DP,pcm=7
+input16	HDA Intel PCH HDMI/DP,pcm=8
+input17	TPPS/2 IBM TrackPoint
+input1	Lid Switch
+input2	Power Button
+input3	AT Translated Set 2 keyboard
+input5	Video Bus
+input6	SynPS/2 Synaptics TouchPad
+input8	ThinkPad Extra Buttons
+input9	PC Speaker

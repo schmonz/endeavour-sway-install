@@ -7,10 +7,10 @@ setup() {
     reset_flags
 }
 
-@test "probe_has_facetimehd: macbookpro-52 sets HAS_FACETIMEHD=true" {
+@test "probe_has_facetimehd: macbookpro-52 leaves HAS_FACETIMEHD=false (USB iSight, no PCIe FaceTime HD)" {
     need_specimen "macbookpro-52/lspci-n.txt"
     probe_has_facetimehd "$(specimen macbookpro-52/lspci-n.txt)"
-    [[ "$HAS_FACETIMEHD" == "true" ]]
+    [[ "$HAS_FACETIMEHD" == "false" ]]
 }
 
 @test "probe_has_facetimehd: thinkpad-x270 leaves HAS_FACETIMEHD=false" {

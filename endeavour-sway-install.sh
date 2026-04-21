@@ -284,10 +284,11 @@ probe_thinkpad_goodies() {    # args: vendor, product, version
     fi
 }
 
-# NEEDS_SOFTWARE_GL: ATI R430 GPU (Mobility Radeon X1xxx, PCI 1002:5b6x) —
-# cannot drive modern OpenGL; requires llvmpipe via LIBGL_ALWAYS_SOFTWARE=1.
+# NEEDS_SOFTWARE_GL: old ATI/AMD GPU (r300 driver family) that cannot drive
+# modern OpenGL; requires llvmpipe via LIBGL_ALWAYS_SOFTWARE=1.
+# 1002:5b6x = RV370 (Radeon X300/X600); 1002:7145 = M26 (Mobility Radeon X1400)
 probe_needs_software_gl() {   # arg: lspci -n output
-    grep -q "1002:5b6" <<< "${1:-}" && NEEDS_SOFTWARE_GL=true || true
+    grep -qE "1002:(5b6|7145)" <<< "${1:-}" && NEEDS_SOFTWARE_GL=true || true
 }
 
 # HAS_WEBCAM: V4L2 device present, or FaceTime HD PCIe camera detected.

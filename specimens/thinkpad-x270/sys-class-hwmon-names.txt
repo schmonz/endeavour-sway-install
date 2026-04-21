@@ -1,0 +1,9 @@
+hwmon0	AC
+hwmon1	acpitz
+hwmon2	BAT0
+hwmon3	BAT1
+hwmon4	pch_skylake
+hwmon5	thinkpad
+hwmon6	iwlwifi_1
+hwmon7	tps6598x_source_psy_i2c_INT3515:00_tps6598x.0
+hwmon8	coretemp

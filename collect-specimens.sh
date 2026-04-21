@@ -14,12 +14,26 @@ DEST="$(dirname "$0")/specimens/$SLUG"
 
 mkdir -p "$DEST"
 
+# Write stdin to $DEST/$1 only if non-empty; preserve existing file otherwise.
+save_if_nonempty() {
+    local label="$1"
+    local tmp; tmp=$(mktemp)
+    cat > "$tmp"
+    if [[ -s "$tmp" ]]; then
+        cp "$tmp" "$DEST/$label" && rm -f "$tmp"
+        echo "  OK  $label"
+    else
+        rm -f "$tmp"
+        echo "  --  $label (not present)"
+    fi
+}
+
+# Run command; write output to $DEST/$1 on success, preserve existing on failure.
 run() {
     local label="$1"; shift
-    local file="$DEST/$label"
     local tmp; tmp=$(mktemp)
     if "$@" > "$tmp" 2>&1; then
-        mv "$tmp" "$file"
+        cp "$tmp" "$DEST/$label" && rm -f "$tmp"
         echo "  OK  $label"
     else
         rm -f "$tmp"
@@ -44,11 +58,10 @@ run lspci-n.txt  lspci -n
 run proc-meminfo.txt  cat /proc/meminfo
 
 if [[ -f /proc/acpi/button/lid/LID0/state ]]; then
-    mkdir -p "$DEST/proc/acpi/button/lid/LID0"
-    cp /proc/acpi/button/lid/LID0/state "$DEST/proc/acpi/button/lid/LID0/state"
-    echo "  OK  proc/acpi/button/lid/LID0/state"
+    cp /proc/acpi/button/lid/LID0/state "$DEST/proc-acpi-button-lid-LID0-state"
+    echo "  OK  proc-acpi-button-lid-LID0-state"
 else
-    echo "  --  proc/acpi/button/lid/LID0/state (not present)"
+    echo "  --  proc-acpi-button-lid-LID0-state (not present)"
 fi
 
 # ── udevadm power buttons ─────────────────────────────────────────────────────
@@ -66,29 +79,39 @@ fi
 } > "$DEST/udevadm-power-buttons.txt"
 echo "  OK  udevadm-power-buttons.txt"
 
-# ── sysfs trees ─────────────────────────────────────────────────────────────
-copy_sysfs_tree() {
-    local src="$1"
-    local label="${src#/}"; label="${label//\//-}"   # /sys/class/input → sys-class-input
-    local dest="$DEST/$label"
-    if [[ -d "$src" ]]; then
-        mkdir -p "$dest"
-        cp -a "$src/." "$dest/" 2>/dev/null || true
-        local count
-        count=$(find "$dest" 2>/dev/null | wc -l)
-        echo "  OK  $label ($count entries)"
-    else
-        echo "  --  $label (not present)"
-    fi
-}
+# ── sysfs ─────────────────────────────────────────────────────────────────────
+# input device names: "inputN<TAB>name" per line (for probe_acpi_lid_poll,
+# probe_sway_power_key)
+{
+    for f in /sys/class/input/input*/name; do
+        [[ -f "$f" ]] || continue
+        printf '%s\t%s\n' "$(basename "$(dirname "$f")")" "$(cat "$f")"
+    done
+} | save_if_nonempty sys-class-input-names.txt
 
-copy_sysfs_tree /sys/class/input
-copy_sysfs_tree /sys/class/leds
-copy_sysfs_tree /sys/class/hwmon
-copy_sysfs_tree /sys/class/drm
-copy_sysfs_tree /sys/bus/iio/devices
-copy_sysfs_tree /sys/class/chromeos
-copy_sysfs_tree /sys/class/video4linux
+# LED names: one per line (for probe_kbd_backlight)
+ls /sys/class/leds/ 2>/dev/null | save_if_nonempty sys-class-leds.txt
+
+# hwmon names: "hwmonN<TAB>name" per line (for probe_needs_mbpfan)
+{
+    for f in /sys/class/hwmon/hwmon*/name; do
+        [[ -f "$f" ]] || continue
+        printf '%s\t%s\n' "$(basename "$(dirname "$f")")" "$(cat "$f")"
+    done
+} | save_if_nonempty sys-class-hwmon-names.txt
+
+# DRM entries: one per line (for probe_phantom_lvds2)
+ls /sys/class/drm/ 2>/dev/null | save_if_nonempty sys-class-drm.txt
+
+# IIO illuminance paths: present = ALS exists (for probe_ambient_light_sensor)
+find /sys/bus/iio/devices -name 'in_illuminance*' 2>/dev/null \
+    | save_if_nonempty sys-bus-iio-illuminance.txt
+
+# Chromeos entries: one per line (for probe_chromebook)
+ls /sys/class/chromeos/ 2>/dev/null | save_if_nonempty sys-class-chromeos.txt
+
+# V4L device names: one per line (for probe_has_webcam)
+ls /sys/class/video4linux/ 2>/dev/null | save_if_nonempty sys-class-video4linux.txt
 
 # ── device nodes ─────────────────────────────────────────────────────────────
 run dev-lirc.txt    bash -c 'ls /dev/lirc* 2>&1 || true'
