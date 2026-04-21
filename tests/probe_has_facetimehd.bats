@@ -7,9 +7,9 @@ setup() {
     reset_flags
 }
 
-@test "probe_has_facetimehd: mbp52 sets HAS_FACETIMEHD=true" {
-    need_specimen "mbp52/lspci-n.txt"
-    probe_has_facetimehd "$(specimen mbp52/lspci-n.txt)"
+@test "probe_has_facetimehd: macbookpro-52 sets HAS_FACETIMEHD=true" {
+    need_specimen "macbookpro-52/lspci-n.txt"
+    probe_has_facetimehd "$(specimen macbookpro-52/lspci-n.txt)"
     [[ "$HAS_FACETIMEHD" == "true" ]]
 }
 

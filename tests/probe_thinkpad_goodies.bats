@@ -18,14 +18,14 @@ setup() {
     [[ "$THINKPAD_GOODIES" == "true" ]]
 }
 
-@test "probe_thinkpad_goodies: mbp52 leaves THINKPAD_GOODIES=false" {
-    need_specimen "mbp52/dmidecode-system-manufacturer.txt"
-    need_specimen "mbp52/dmidecode-system-product-name.txt"
-    need_specimen "mbp52/dmidecode-system-version.txt"
+@test "probe_thinkpad_goodies: macbookpro-52 leaves THINKPAD_GOODIES=false" {
+    need_specimen "macbookpro-52/dmidecode-system-manufacturer.txt"
+    need_specimen "macbookpro-52/dmidecode-system-product-name.txt"
+    need_specimen "macbookpro-52/dmidecode-system-version.txt"
     probe_thinkpad_goodies \
-        "$(specimen mbp52/dmidecode-system-manufacturer.txt)" \
-        "$(specimen mbp52/dmidecode-system-product-name.txt)" \
-        "$(specimen mbp52/dmidecode-system-version.txt)"
+        "$(specimen macbookpro-52/dmidecode-system-manufacturer.txt)" \
+        "$(specimen macbookpro-52/dmidecode-system-product-name.txt)" \
+        "$(specimen macbookpro-52/dmidecode-system-version.txt)"
     [[ "$THINKPAD_GOODIES" == "false" ]]
 }
 

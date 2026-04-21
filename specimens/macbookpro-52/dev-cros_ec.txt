@@ -1,0 +1,1 @@
+ls: cannot access '/dev/cros_ec': No such file or directory

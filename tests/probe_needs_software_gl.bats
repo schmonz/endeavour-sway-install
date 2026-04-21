@@ -7,9 +7,9 @@ setup() {
     reset_flags
 }
 
-@test "probe_needs_software_gl: t60 sets NEEDS_SOFTWARE_GL=true" {
-    need_specimen "t60/lspci-n.txt"
-    probe_needs_software_gl "$(specimen t60/lspci-n.txt)"
+@test "probe_needs_software_gl: thinkpad-t60 sets NEEDS_SOFTWARE_GL=true" {
+    need_specimen "thinkpad-t60/lspci-n.txt"
+    probe_needs_software_gl "$(specimen thinkpad-t60/lspci-n.txt)"
     [[ "$NEEDS_SOFTWARE_GL" == "true" ]]
 }
 

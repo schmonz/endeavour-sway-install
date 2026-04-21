@@ -7,10 +7,10 @@ setup() {
     reset_flags
 }
 
-@test "probe_needs_zswap: t60 (<8G RAM) sets NEEDS_ZSWAP=true" {
-    need_specimen "t60/proc-meminfo.txt"
+@test "probe_needs_zswap: thinkpad-t60 (<8G RAM) sets NEEDS_ZSWAP=true" {
+    need_specimen "thinkpad-t60/proc-meminfo.txt"
     local kb
-    kb="$(grep MemTotal "$(specimen_path t60/proc-meminfo.txt)" | awk '{print $2}')"
+    kb="$(grep MemTotal "$(specimen_path thinkpad-t60/proc-meminfo.txt)" | awk '{print $2}')"
     probe_needs_zswap "$kb"
     [[ "$NEEDS_ZSWAP" == "true" ]]
 }
