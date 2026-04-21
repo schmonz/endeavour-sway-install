@@ -965,9 +965,11 @@ phase2() {
     fi
     install_warnings_displayer "$target_home"
 
+    local phase3_cmd="${INSTALL_SCRIPT_DEST} ${target_user}"
     info ""
     info "Phase 2 complete. Log in to Sway, then run:"
-    info "  ${INSTALL_SCRIPT_DEST} --phase 3"
+    info "  ${phase3_cmd}"
+    echo "Phase 3 not yet run. In a Sway terminal: ${phase3_cmd}" >> "$WARNINGS_FILE"
     # The service unit deletes itself via ExecStartPost.
 }
 
@@ -1134,7 +1136,7 @@ phase3() {
     swaymsg_reload
 
     info ""
-    info "Phase 3 complete."
+    info "Phase 3 complete. Log out and back in."
     info "  Remaining interactive steps: tailscale up (if not done), rclone config, launch 1Password."
     # XXX lid close: mute, lock, suspend
     # XXX cursor to lower right: lock and sleep display
