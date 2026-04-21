@@ -161,26 +161,27 @@ HAS_WEBCAM=false           # install guvcview (TODO: detect actual webcam presen
 report_capabilities() {
     local fmt='  %-34s %s\n'
     local text
-    text="Hardware capability detection (verify these look right for this machine):"$'\n'
-    text+=$(printf "$fmt" "DISABLE_SLEEP=$DISABLE_SLEEP"               "mask all sleep/suspend targets")
-    text+=$(printf "$fmt" "ACPI_LID_POLL=$ACPI_LID_POLL"               "poll /proc/acpi for lid (EC silent)")
-    text+=$(printf "$fmt" "POWER_KEY_UDEV_STRIP=$POWER_KEY_UDEV_STRIP" "strip power-switch udev tag")
-    text+=$(printf "$fmt" "SWAY_POWER_KEY=$SWAY_POWER_KEY"             "XF86PowerOff bindsym in Sway")
-    text+=$(printf "$fmt" "CHROMEBOOK_FKEYS=$CHROMEBOOK_FKEYS"         "cros-keyboard-map")
-    text+=$(printf "$fmt" "CHROMEBOOK_AUDIO=$CHROMEBOOK_AUDIO"         "chromebook-linux-audio AVS setup")
-    text+=$(printf "$fmt" "AMBIENT_LIGHT_SENSOR=$AMBIENT_LIGHT_SENSOR" "iio-sensor-proxy + clight")
-    text+=$(printf "$fmt" "KBD_BACKLIGHT=$KBD_BACKLIGHT"               "keyboard backlight auto-setup")
-    text+=$(printf "$fmt" "NEEDS_MBPFAN=$NEEDS_MBPFAN"                 "mbpfan Mac fan control")
-    text+=$(printf "$fmt" "HAS_FACETIMEHD=$HAS_FACETIMEHD"             "facetimehd-dkms")
-    text+=$(printf "$fmt" "PHANTOM_LVDS2=$PHANTOM_LVDS2"               "disable phantom LVDS-2 display")
-    text+=$(printf "$fmt" "NEEDS_ZSWAP=$NEEDS_ZSWAP"                   "enable zswap")
-    text+=$(printf "$fmt" "HAS_IR_RECEIVER=$HAS_IR_RECEIVER"           "LIRC infrared")
-    text+=$(printf "$fmt" "THINKPAD_GOODIES=$THINKPAD_GOODIES"         "ThinkPad smart card/buttons/fingerprint")
-    text+=$(printf "$fmt" "NEEDS_SOFTWARE_GL=$NEEDS_SOFTWARE_GL"       "LIBGL_ALWAYS_SOFTWARE=1")
-    text+=$(printf "$fmt" "HAS_WEBCAM=$HAS_WEBCAM"                     "guvcview")
-    text+="If any flag looks wrong, improve its probe in detect_machine_capabilities()."
+    text=$(
+        printf "Hardware capability detection (verify these look right for this machine):\n"
+        printf "$fmt" "DISABLE_SLEEP=$DISABLE_SLEEP"               "mask all sleep/suspend targets"
+        printf "$fmt" "ACPI_LID_POLL=$ACPI_LID_POLL"               "poll /proc/acpi for lid (EC silent)"
+        printf "$fmt" "POWER_KEY_UDEV_STRIP=$POWER_KEY_UDEV_STRIP" "strip power-switch udev tag"
+        printf "$fmt" "SWAY_POWER_KEY=$SWAY_POWER_KEY"             "XF86PowerOff bindsym in Sway"
+        printf "$fmt" "CHROMEBOOK_FKEYS=$CHROMEBOOK_FKEYS"         "cros-keyboard-map"
+        printf "$fmt" "CHROMEBOOK_AUDIO=$CHROMEBOOK_AUDIO"         "chromebook-linux-audio AVS setup"
+        printf "$fmt" "AMBIENT_LIGHT_SENSOR=$AMBIENT_LIGHT_SENSOR" "iio-sensor-proxy + clight"
+        printf "$fmt" "KBD_BACKLIGHT=$KBD_BACKLIGHT"               "keyboard backlight auto-setup"
+        printf "$fmt" "NEEDS_MBPFAN=$NEEDS_MBPFAN"                 "mbpfan Mac fan control"
+        printf "$fmt" "HAS_FACETIMEHD=$HAS_FACETIMEHD"             "facetimehd-dkms"
+        printf "$fmt" "PHANTOM_LVDS2=$PHANTOM_LVDS2"               "disable phantom LVDS-2 display"
+        printf "$fmt" "NEEDS_ZSWAP=$NEEDS_ZSWAP"                   "enable zswap"
+        printf "$fmt" "HAS_IR_RECEIVER=$HAS_IR_RECEIVER"           "LIRC infrared"
+        printf "$fmt" "THINKPAD_GOODIES=$THINKPAD_GOODIES"         "ThinkPad smart card/buttons/fingerprint"
+        printf "$fmt" "NEEDS_SOFTWARE_GL=$NEEDS_SOFTWARE_GL"       "LIBGL_ALWAYS_SOFTWARE=1"
+        printf "$fmt" "HAS_WEBCAM=$HAS_WEBCAM"                     "guvcview"
+        printf "If any flag looks wrong, improve its probe in detect_machine_capabilities().\n"
+    )
     info "$text"
-    # In root phases (1 and 2): also write to warnings file so user sees it on first login.
     [[ $EUID -eq 0 ]] && echo "$text" >> "$WARNINGS_FILE"
 }
 
@@ -754,8 +755,8 @@ install_firstboot_service() {
 [Unit]
 Description=EndeavourOS Sway first-boot setup (phase 2)
 Documentation=file://${INSTALL_SCRIPT_DEST}
-After=network-online.target systemd-user-sessions.service
-Wants=network-online.target
+After=network-online.target nss-lookup.target systemd-user-sessions.service
+Wants=network-online.target nss-lookup.target
 ConditionPathExists=${INSTALL_SCRIPT_DEST}
 
 [Service]
@@ -889,6 +890,7 @@ EOF
 
     info "=== Phase 1: systemd-resolved ==="
     ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+    system_systemctl --not-now enable systemd-resolved
 
     info "=== Phase 1: logind / sleep config ==="
     if $DISABLE_SLEEP; then
@@ -921,6 +923,15 @@ phase2() {
 
     detect_machine_capabilities
 
+    info "=== Phase 2: dotfiles ==="
+    if [[ ! -d "${target_home}/trees/dotfiles" ]]; then
+        su - "$target_user" -c \
+            "mkdir -p ~/trees && git clone https://github.com/schmonz/dotfiles.git ~/trees/dotfiles"
+    fi
+    su - "$target_user" -c \
+        "ln -sf ~/trees/dotfiles/gitconfig ~/.gitconfig && ln -sf ~/trees/dotfiles/tmux.conf ~/.tmux.conf"
+    ln -sf "${target_home}/trees/dotfiles/gitconfig" /root/.gitconfig || true
+
     info "=== Phase 2: etckeeper commit ==="
     etckeeper commit -m 'Track /etc after phase-1 install.' 2>/dev/null || true
 
@@ -931,21 +942,11 @@ phase2() {
         git -C /etc gc --prune
     fi
 
-    info "=== Phase 2: dotfiles ==="
-    if [[ ! -d "${target_home}/trees/dotfiles" ]]; then
-        su - "$target_user" -c \
-            "mkdir -p ~/trees && git clone https://github.com/schmonz/dotfiles.git ~/trees/dotfiles"
-    fi
-    su - "$target_user" -c \
-        "ln -sf ~/trees/dotfiles/gitconfig ~/.gitconfig && ln -sf ~/trees/dotfiles/tmux.conf ~/.tmux.conf"
-    ln -sf "${target_home}/trees/dotfiles/gitconfig" /root/.gitconfig || true
-
     info "=== Phase 2: systemctl enables ==="
     system_systemctl enable bluetooth
     # XXX what's --needed (skips already-installed packages)
     # bluetoothctl pairing: https://wiki.archlinux.org/title/Bluetooth#Pairing
     system_systemctl enable tailscaled
-    system_systemctl enable systemd-resolved
 
     info "=== Phase 2: firewall (daemon now running) ==="
     firewall-cmd --set-default-zone=home || true
