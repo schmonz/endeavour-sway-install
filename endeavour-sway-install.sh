@@ -1157,10 +1157,12 @@ detect_phase() {
 main() {
     local phase="" from_installer=false
 
+    local username="$1"; shift
+
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --phase) phase="${2:-}"; shift 2 ;;
-            *) die "Unknown argument: $1. Usage: $0 [--phase 1|2|3]" ;;
+            *) die "Unknown argument: $1. Usage: $0 <username> [--phase 1|2|3]" ;;
         esac
     done
 
@@ -1175,7 +1177,7 @@ main() {
         1)
             if $from_installer; then
                 info "Fetching Sway CE baseline ..."
-                curl -fsSL "$SWAY_CE_URL" | bash
+                curl -fsSL "$SWAY_CE_URL" | bash -s -- $username
             fi
             phase1
             ;;
