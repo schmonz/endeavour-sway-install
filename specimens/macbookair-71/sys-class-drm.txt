@@ -1,0 +1,8 @@
+card1
+card1-DP-1
+card1-DP-2
+card1-eDP-1
+card1-HDMI-A-1
+card1-HDMI-A-2
+renderD128
+version

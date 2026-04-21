@@ -1,0 +1,6 @@
+input6::capslock
+input6::compose
+input6::kana
+input6::numlock
+input6::scrolllock
+smc::kbd_backlight

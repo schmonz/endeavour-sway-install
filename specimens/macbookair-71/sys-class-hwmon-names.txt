@@ -1,0 +1,4 @@
+hwmon0	ADP1
+hwmon1	pch_wildcat_point
+hwmon2	BAT0
+hwmon4	coretemp

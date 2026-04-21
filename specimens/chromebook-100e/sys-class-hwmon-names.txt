@@ -1,0 +1,7 @@
+hwmon0	AC
+hwmon1	BAT0
+hwmon2	coretemp
+hwmon3	iwlwifi_1
+hwmon4	cros_ec
+hwmon5	CROS_USBPD_CHARGER0
+hwmon6	CROS_USBPD_CHARGER1

@@ -1,0 +1,9 @@
+input0	Lid Switch
+input1	Sleep Button
+input2	Power Button
+input3	AT Translated Set 2 keyboard
+input5	Video Bus
+input6	SynPS/2 Synaptics TouchPad
+input7	TPPS/2 IBM TrackPoint
+input8	ThinkPad Extra Buttons
+input9	PC Speaker

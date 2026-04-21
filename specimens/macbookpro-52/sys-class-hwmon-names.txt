@@ -1,0 +1,5 @@
+hwmon0	ADP1
+hwmon1	coretemp
+hwmon2	nouveau
+hwmon3	nouveau
+hwmon4	BAT0

@@ -1,0 +1,12 @@
+input0	Lid Switch
+input10	HDA NVidia Mic
+input11	HDA NVidia Line
+input12	HDA NVidia Headphone
+input13	applesmc
+input1	Power Button
+input2	Sleep Button
+input3	Power Button
+input6	Apple, Inc. Apple Internal Keyboard / Trackpad
+input7	Apple Computer, Inc. IR Receiver
+input8	bcm5974
+input9	PC Speaker

@@ -1,0 +1,7 @@
+chromeos::kbd_backlight
+chromeos:multicolor:charging
+chromeos:white:power
+input3::capslock
+input3::numlock
+input3::scrolllock
+phy0-led

@@ -1,0 +1,8 @@
+card0
+card0-LVDS-1
+card1
+card1-DP-1
+card1-LVDS-2
+renderD128
+renderD129
+version

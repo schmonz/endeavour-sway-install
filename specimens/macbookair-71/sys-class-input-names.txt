@@ -1,0 +1,13 @@
+input0	Lid Switch
+input10	HDA Intel HDMI HDMI/DP,pcm=3
+input11	HDA Intel HDMI HDMI/DP,pcm=7
+input12	HDA Intel HDMI HDMI/DP,pcm=8
+input13	HDA Intel PCH Mic
+input14	HDA Intel PCH Headphone
+input1	Power Button
+input2	Sleep Button
+input3	Power Button
+input6	Video Bus
+input7	Apple Inc. Apple Internal Keyboard / Trackpad
+input8	bcm5974
+input9	PC Speaker

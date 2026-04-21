@@ -1,0 +1,12 @@
+input0	Lid Switch
+input10	AVS HDMI HDMI/DP,pcm=1
+input11	AVS HDMI HDMI/DP,pcm=2
+input1	Sleep Button
+input2	Power Button
+input3	AT Translated Set 2 keyboard
+input4	Video Bus
+input5	Elan Touchpad
+input6	Tablet Mode Switch
+input7	PC Speaker
+input8	AVS I2S DA7219 Headset Jack
+input9	AVS HDMI HDMI/DP
