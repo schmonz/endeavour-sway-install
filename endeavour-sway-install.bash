@@ -829,7 +829,6 @@ phase1() {
         discord signal-desktop \
         libreoffice-fresh abiword cups cups-browsed system-config-printer \
         xdg-desktop-portal xdg-desktop-portal-wlr \
-        steam prismlauncher \
         eos-update-notifier \
         btop fastfetch tmux the_silver_searcher xorg-xhost \
         apostrophe glow tig github-cli socat
@@ -979,9 +978,6 @@ phase3() {
     require_sudo
     detect_machine_capabilities
 
-    info "=== Phase 3: gaming: GPU check ==="
-    lspci | grep -i vga || true
-
     info "=== Phase 3: yay installs (common) ==="
     aur_install \
         timeshift-autosnap \
@@ -991,7 +987,6 @@ phase3() {
         slack-electron \
         zoom teams-for-linux-electron-bin \
         rclone \
-        minecraft-launcher \
         clion clion-jre \
         intellij-idea-ultimate-edition \
         goland goland-jre \
