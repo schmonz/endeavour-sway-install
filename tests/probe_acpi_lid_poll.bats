@@ -11,13 +11,13 @@ teardown() {
     teardown_probe_root
 }
 
-# chromebook-100e: has LID0 state file but also "Lid Switch" input → no poll needed
-@test "probe_acpi_lid_poll: chromebook-100e leaves ACPI_LID_POLL=false" {
+# chromebook-100e: has LID0 and cros_ec → Chrome EC owns lid events, must poll
+@test "probe_acpi_lid_poll: chromebook-100e sets ACPI_LID_POLL=true" {
     need_specimen "chromebook-100e/proc-acpi-button-lid-LID0-state"
     need_specimen "chromebook-100e/sys-class-input-names.txt"
     PROBE_ROOT=$(make_probe_root chromebook-100e)
     probe_acpi_lid_poll
-    [[ "$ACPI_LID_POLL" == "false" ]]
+    [[ "$ACPI_LID_POLL" == "true" ]]
 }
 
 # thinkpad-x270: no LID0 state file

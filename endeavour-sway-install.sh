@@ -198,10 +198,11 @@ probe_disable_sleep() {       # arg: bios-version string
     [[ "${1:-}" == MrChromebox* ]] && DISABLE_SLEEP=true || true
 }
 
-# ACPI_LID_POLL: lid ACPI node exists but no input device is named "Lid Switch"
-# (Chrome EC handles the event in hardware, never generating kernel input events).
+# ACPI_LID_POLL: lid ACPI node exists but kernel input events are unreliable.
+# Chrome EC handles lid events in firmware; "Lid Switch" input node exists but never fires.
 probe_acpi_lid_poll() {
     [[ -f "${PROBE_ROOT}/proc/acpi/button/lid/LID0/state" ]] || return 0
+    [[ -e "${PROBE_ROOT}/dev/cros_ec" ]] && { ACPI_LID_POLL=true; return; }
     grep -rql "Lid Switch" "${PROBE_ROOT}/sys/class/input/input"*/name 2>/dev/null \
         && return 0
     ACPI_LID_POLL=true
@@ -243,12 +244,11 @@ probe_kbd_backlight() {
         | grep -qiE "kbd|keyboard" && KBD_BACKLIGHT=true || true
 }
 
-# NEEDS_MBPFAN: Apple SMC hardware monitor (applesmc) present.
-probe_needs_mbpfan() {
-    local hwmon
-    for hwmon in "${PROBE_ROOT}"/sys/class/hwmon/hwmon*/name; do
-        grep -q "applesmc" "$hwmon" 2>/dev/null && { NEEDS_MBPFAN=true; return; }
-    done; true
+# NEEDS_MBPFAN: Apple MacBook — needs mbpfan to control fans via applesmc.
+probe_needs_mbpfan() {    # args: vendor, product
+    [[ "${1:-}" == "Apple Inc." ]] \
+        && [[ "${2:-}" == MacBook* ]] \
+        && NEEDS_MBPFAN=true || true
 }
 
 # HAS_FACETIMEHD: Broadcom FaceTime HD camera (PCIe ID 14e4:1570).
@@ -334,7 +334,7 @@ detect_machine_capabilities() {
     probe_chromebook
     probe_ambient_light_sensor
     probe_kbd_backlight
-    probe_needs_mbpfan
+    probe_needs_mbpfan          "$vendor" "$product"
     probe_has_facetimehd        "$lspci_out"
     probe_phantom_lvds2
     probe_needs_zswap           "$total_mem_kb"
