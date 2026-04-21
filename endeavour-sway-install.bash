@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# endeavour-sway-install.sh
+# endeavour-sway-install.bash
 #
 # Multi-phase setup for EndeavourOS Sway edition.
 #
 # Usage:
 #   Phase 1 — installer chroot (root, no systemd, no graphical session):
-#     bash endeavour-sway-install.sh --phase 1
+#     bash endeavour-sway-install.bash --phase 1
 #   Phase 2 — first-boot systemd service (root, systemd running):
 #     Invoked automatically by endeavour-sway-firstboot.service.
 #   Phase 3 — first Sway session (normal user):
-#     endeavour-sway-install.sh --phase 3
+#     endeavour-sway-install --phase 3
 #
 # Phase 1 is run by the Calamares post-install hook after the Sway CE script.
 # Safe to re-run individual phases.
@@ -50,9 +50,9 @@
 set -euo pipefail
 
 WARNINGS_FILE="/root/endeavour-setup-warnings.txt"
-INSTALL_SCRIPT_DEST="/usr/local/bin/endeavour-sway-install.sh"
+INSTALL_SCRIPT_DEST="/usr/local/bin/endeavour-sway-install"
 FIRSTBOOT_SERVICE="/etc/systemd/system/endeavour-sway-firstboot.service"
-SELF_URL="https://raw.githubusercontent.com/schmonz/endeavour-sway-install/main/endeavour-sway-install.sh"
+SELF_URL="https://raw.githubusercontent.com/schmonz/endeavour-sway-install/main/endeavour-sway-install.bash"
 SWAY_CE_URL="https://raw.githubusercontent.com/EndeavourOS-Community-Editions/sway/main/setup_sway_isomode.bash"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
