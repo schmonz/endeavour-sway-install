@@ -760,7 +760,7 @@ ConditionPathExists=${INSTALL_SCRIPT_DEST}
 
 [Service]
 Type=oneshot
-ExecStart=${INSTALL_SCRIPT_DEST} --phase 2
+ExecStart=${INSTALL_SCRIPT_DEST} ${target_user} --phase 2
 ExecStartPost=/bin/rm -f ${FIRSTBOOT_SERVICE}
 RemainAfterExit=no
 StandardOutput=journal
@@ -867,6 +867,7 @@ EndSection
 EOF
 
     info "=== Phase 1: pbcopy / pbpaste ==="
+    mkdir -p /usr/local/bin
     printf '#!/bin/sh\nexec wl-copy "$@"\n' > /usr/local/bin/pbcopy
     printf '#!/bin/sh\nexec wl-paste --no-newline "$@"\n' > /usr/local/bin/pbpaste
     chmod +x /usr/local/bin/pbcopy /usr/local/bin/pbpaste
