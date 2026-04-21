@@ -1142,11 +1142,14 @@ phase3() {
 
 # ── Phase detection ───────────────────────────────────────────────────────────
 
+in_user_session() { [[ $EUID -ne 0 ]] || [[ -n "${SWAYSOCK:-}" ]]; }
+in_chroot()       { [[ ! -d /run/systemd/system ]]; }
+
 detect_phase() {
-    if [[ $EUID -ne 0 ]] || [[ -n "${SWAYSOCK:-}" ]]; then
+    if in_user_session; then
         echo 3
-    elif [[ "$(cat /proc/1/comm 2>/dev/null)" != "systemd" ]]; then
-        echo 1   # chroot — systemd is not PID 1
+    elif in_chroot; then
+        echo 1
     else
         echo 2   # first boot — systemd running, no user session
     fi
