@@ -853,6 +853,7 @@ EOF
     else
         info "Autologin already configured."
     fi
+    etckeeper_commit "Enable autologin."
 
     info "=== Phase 1: macOS keyboard layout ==="
     # localectl requires systemd-localed; write the config file directly instead.
@@ -865,6 +866,7 @@ Section "InputClass"
     Option "XkbVariant" "mac"
 EndSection
 EOF
+    etckeeper_commit "Enable Mac-like accents with Right-Alt."
 
     info "=== Phase 1: pbcopy / pbpaste ==="
     mkdir -p /usr/local/bin
@@ -884,8 +886,10 @@ EOF
     info "=== Phase 1: firewall (permanent rules, no daemon needed) ==="
     firewall-cmd --set-default-zone=home --permanent \
         || warn "firewall-cmd --set-default-zone failed (will retry in phase 2)."
+    etckeeper_commit "Set default firewall zone to 'home'."
     firewall-cmd --add-port=53317/tcp --permanent || true
     firewall-cmd --add-port=53317/udp --permanent || true
+    etckeeper_commit "Allow LocalSend through firewall."
 
     info "=== Phase 1: systemd-resolved ==="
     ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
@@ -943,7 +947,7 @@ phase2() {
 
     info "=== Phase 2: systemctl enables ==="
     system_systemctl enable bluetooth
-    # XXX what's --needed (skips already-installed packages)
+    etckeeper_commit "Enable Bluetooth."
     # bluetoothctl pairing: https://wiki.archlinux.org/title/Bluetooth#Pairing
     system_systemctl enable tailscaled
 
@@ -1056,6 +1060,7 @@ EOF
   ]
 }
 EOF
+    etckeeper_commit "Force-install 1Password extension in Chromium/Helium."
 
     # Geolocation (disabled):
     # sudo pacman -S --noconfirm xdg-desktop-portal-gtk
@@ -1081,14 +1086,8 @@ EOF
     # XXX configure LocalSend to use the real system hostname
     info "Log out and back in for Thunar Network view to show shares."
 
-    info "=== Phase 3: etckeeper commits ==="
-    etckeeper_commit "Enable autologin."
-    etckeeper_commit "Enable Mac-like accents with Right-Alt."
-    etckeeper_commit "Enable Bluetooth."
+    info "=== Phase 3: power saving ==="
     setup_power_saving
-    etckeeper_commit "Set default firewall zone to 'home'."
-    etckeeper_commit "Allow LocalSend through firewall."
-    etckeeper_commit "Force-install 1Password extension in Chromium/Helium."
 
     info "=== Phase 3: firmware updates ==="
     fwupdmgr get-updates || true
