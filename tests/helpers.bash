@@ -6,7 +6,7 @@ load_script() {
     warn()   { true; }
     inform() { true; }
     # shellcheck disable=SC1090
-    source "$SCRIPT_DIR/endeavour-sway-install.sh" || true
+    source "$SCRIPT_DIR/endeavour-sway-install.bash" || true
 }
 
 need_specimen() {
