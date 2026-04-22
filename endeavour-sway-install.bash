@@ -933,12 +933,12 @@ phase2() {
 
     info "=== Phase 2: etckeeper commit ==="
     etckeeper commit -m 'Track /etc after phase-1 install.' 2>/dev/null || true
+    git -C /etc gc --prune
 
     local current_branch
     current_branch=$(git -C /etc symbolic-ref --short HEAD 2>/dev/null || true)
     if [[ -n "$current_branch" && "$current_branch" != "$(hostname)" ]]; then
         git -C /etc branch -m "$(hostname)"
-        git -C /etc gc --prune
     fi
 
     info "=== Phase 2: systemctl enables ==="
@@ -975,6 +975,7 @@ phase2() {
 # ── Phase 3: first Sway session ───────────────────────────────────────────────
 
 phase3() {
+    local target_user="$1"
     require_sudo
     detect_machine_capabilities
 
@@ -1065,8 +1066,8 @@ phase3() {
 
     etckeeper_commit "Install development tools."
 
-    info "=== Phase 3: cloud storage ==="
-    rclone config
+    # info "=== Phase 3: cloud storage ==="
+    # rclone config
     # After authentication error: log into icloud.com in a browser, open Chrome
     # Dev Tools → Network tab, click a request, grab the full Cookie header and
     # X-APPLE-WEBAUTH-HSA-TRUST value, then:
@@ -1118,7 +1119,7 @@ phase3() {
 
     $HAS_IR_RECEIVER   && setup_infrared_receiver
     $THINKPAD_GOODIES  && setup_thinkpad_goodies
-    $SWAY_POWER_KEY    && add_sway_poweroff_binding "$USER"
+    $SWAY_POWER_KEY    && add_sway_poweroff_binding "$target_user"
 
     etckeeper_commit "endeavour-sway: machine-specific phase-3 config."
     $POWER_KEY_UDEV_STRIP && \
@@ -1180,7 +1181,7 @@ main() {
             phase1
             ;;
         2) phase2 ;;
-        3) phase3 ;;
+        3) phase3 "$username" ;;
         *) die "Unknown phase '${phase}'. Must be 1, 2, or 3." ;;
     esac
 }
