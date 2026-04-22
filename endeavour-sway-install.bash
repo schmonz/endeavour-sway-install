@@ -96,7 +96,7 @@ append_once() {
 }
 
 pacman_install()    { _sudo pacman -S --noconfirm --needed "$@"; }
-aur_install()       { yay -S --noconfirm "$@"; }
+aur_install()       { yay -S --noconfirm --needed "$@"; }
 system_systemctl() {
     local yes_now=true
     [[ "${1:-}" == "--not-now" ]] && { yes_now=false; shift; }
@@ -129,7 +129,7 @@ sway_autostart_and_also_start_now() {
     append_once ~/.config/sway/config.d/autostart_applications "$line"
     if [[ -n "${SWAYSOCK:-}" ]]; then
         $pkill && pkill -f "$cmd" 2>/dev/null
-        eval "$cmd" &
+        eval "$cmd" </dev/null &>/dev/null &
     fi
 }
 
@@ -1181,7 +1181,7 @@ EOF
 
     info ""
     info "Phase 3 complete. Log out and back in."
-    info "  Remaining interactive steps: tailscale up (if not done), rclone config, launch 1Password."
+    info "  Remaining interactive steps: tailscale up (if not done), rclone config."
     # XXX lid close: mute, lock, suspend
     # XXX cursor to lower right: lock and sleep display
     # XXX cursor to upper right: lock
