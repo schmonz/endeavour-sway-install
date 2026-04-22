@@ -933,7 +933,7 @@ phase2() {
 
     info "=== Phase 2: etckeeper commit ==="
     etckeeper commit -m 'Track /etc after phase-1 install.' 2>/dev/null || true
-    git -C /etc gc --prune
+    git -C /etc gc --prune 2>/dev/null || warn "git gc failed (non-fatal)."
 
     local current_branch
     current_branch=$(git -C /etc symbolic-ref --short HEAD 2>/dev/null || true)
@@ -1098,8 +1098,10 @@ phase3() {
         if [[ -n "$kbd_dev" ]]; then
             info "Keyboard backlight device: ${kbd_dev}"
             brightnessctl --device="$kbd_dev" set 50%
-            sed -i "/XF86MonBrightnessDown/a\\        XF86KbdBrightnessUp exec brightnessctl -d '${kbd_dev}' set +5%\\n        XF86KbdBrightnessDown exec brightnessctl -d '${kbd_dev}' set 5%-" \
-                ~/.config/sway/config.d/default
+            if ! grep -q "XF86KbdBrightnessUp" ~/.config/sway/config.d/default 2>/dev/null; then
+                sed -i "/XF86MonBrightnessDown/a\\        XF86KbdBrightnessUp exec brightnessctl -d '${kbd_dev}' set +5%\\n        XF86KbdBrightnessDown exec brightnessctl -d '${kbd_dev}' set 5%-" \
+                    ~/.config/sway/config.d/default
+            fi
         else
             accumulate_warning "No keyboard backlight device found — skipping kbd brightness bindings."
         fi
