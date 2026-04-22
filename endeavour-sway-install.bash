@@ -719,11 +719,12 @@ setup_zswap() {
 }
 
 setup_pacman_cache() {
-    # XXX run the Welcome app's "Package Cleanup Configuration" once on a live machine
-    # and record exactly what it installs/enables before implementing this.
-    # It likely does more than plain `pacman-contrib` + `paccache.timer` (e.g. keeps-N
-    # config, pacman transaction hooks via paccache-service-manager AUR package).
+    pacman_install pacman-contrib
+    system_systemctl enable --now paccache.timer
     etckeeper_commit "Periodically clean pacman cache."
+
+    mkdir -p ~/.config/autostart
+    printf '[Desktop Entry]\nHidden=true\n' > ~/.config/autostart/welcome.desktop
 }
 
 setup_power_saving() {
