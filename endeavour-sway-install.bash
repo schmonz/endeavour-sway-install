@@ -1020,7 +1020,42 @@ phase3() {
     mkdir -p ~/.local/share/applications/kde4
     printf '[Desktop Entry]\nHidden=true\n' > ~/.local/share/applications/chromium.desktop
     printf '[Desktop Entry]\nHidden=true\n' > ~/.local/share/applications/kde4/webapp-manager.desktop
-    info "Launch Helium and assign an empty keyring passphrase when prompted."
+
+    # Set Helium as default browser via XDG mime associations.
+    mkdir -p ~/.config
+    cat > ~/.config/mimeapps.list << 'EOF'
+[Default Applications]
+x-scheme-handler/http=helium.desktop
+x-scheme-handler/https=helium.desktop
+text/html=helium.desktop
+application/xhtml+xml=helium.desktop
+EOF
+
+    # Restore previous session on startup (written before first launch so
+    # Chromium picks it up as initial preferences).
+    mkdir -p ~/.config/net.imput.helium ~/.config/chromium
+    printf '{"session":{"restore_on_startup":1}}\n' \
+        | tee ~/.config/net.imput.helium/initial_preferences \
+              ~/.config/chromium/initial_preferences > /dev/null
+
+    # Use basic password store so neither browser prompts for a keyring
+    # password. Actual credentials live in 1Password; this only affects
+    # Chromium's own Safe Storage key.
+    printf -- '--password-store=basic\n' > ~/.config/helium-browser-flags.conf
+    printf -- '--password-store=basic\n' > ~/.config/chromium-flags.conf
+
+    # Force-install the 1Password extension in both Helium and ungoogled-chromium.
+    # Helium reads /etc/chromium/policies (confirmed via strings); ungoogled-chromium
+    # reads the same path.
+    sudo mkdir -p /etc/chromium/policies/managed
+    sudo tee /etc/chromium/policies/managed/1password.json > /dev/null << 'EOF'
+{
+  "ExtensionInstallForcelist": [
+    "aeblfdkhhhdcdjpifhhbdiojplfjncoa;https://clients2.google.com/service/update2/crx"
+  ]
+}
+EOF
+
     # Geolocation (disabled):
     # sudo pacman -S --noconfirm xdg-desktop-portal-gtk
     # systemctl --user enable --now xdg-desktop-portal xdg-desktop-portal-gtk
@@ -1052,7 +1087,7 @@ phase3() {
     setup_power_saving
     etckeeper_commit "Set default firewall zone to 'home'."
     etckeeper_commit "Allow LocalSend through firewall."
-    etckeeper_commit "Enable Helium 1Password integration."
+    etckeeper_commit "Force-install 1Password extension in Chromium/Helium."
 
     info "=== Phase 3: firmware updates ==="
     fwupdmgr get-updates || true
