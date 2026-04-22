@@ -762,7 +762,6 @@ ConditionPathExists=${INSTALL_SCRIPT_DEST}
 [Service]
 Type=oneshot
 ExecStart=${INSTALL_SCRIPT_DEST} ${target_user} --phase 2
-ExecStartPost=/bin/rm -f ${FIRSTBOOT_SERVICE}
 RemainAfterExit=no
 StandardOutput=journal
 StandardError=journal
@@ -957,19 +956,34 @@ phase2() {
 
     etckeeper commit -m 'endeavour-sway: phase-2 first-boot config.' 2>/dev/null || true
 
+    info "=== Phase 2: autologin (re-apply if installer overwrote greetd.conf) ==="
+    if ! grep -q 'initial_session' /etc/greetd/greetd.conf; then
+        tee -a /etc/greetd/greetd.conf > /dev/null << EOF
+
+[initial_session]
+command = "sway"
+user = "${target_user}"
+EOF
+        etckeeper commit -m 'Enable greetd autologin.' 2>/dev/null || true
+    fi
+
+    info "=== Phase 2: remove firstboot service ==="
+    system_systemctl disable endeavour-sway-firstboot.service 2>/dev/null || true
+    rm -f "$FIRSTBOOT_SERVICE"
+    etckeeper commit -m 'Remove phase-2 firstboot service.' 2>/dev/null || true
+
+    local phase3_cmd="${INSTALL_SCRIPT_DEST} ${target_user}"
     info "=== Phase 2: warnings displayer ==="
+    echo "Phase 3 not yet run. In a Sway terminal: ${phase3_cmd}" >> "$WARNINGS_FILE"
     if [[ -f "$WARNINGS_FILE" ]]; then
         install -D -o "$target_user" "$WARNINGS_FILE" "${target_home}/.config/endeavour-warnings"
         rm -f "$WARNINGS_FILE"
     fi
     install_warnings_displayer "$target_home"
 
-    local phase3_cmd="${INSTALL_SCRIPT_DEST} ${target_user}"
     info ""
     info "Phase 2 complete. Log in to Sway, then run:"
     info "  ${phase3_cmd}"
-    echo "Phase 3 not yet run. In a Sway terminal: ${phase3_cmd}" >> "$WARNINGS_FILE"
-    # The service unit deletes itself via ExecStartPost.
 }
 
 # ── Phase 3: first Sway session ───────────────────────────────────────────────
