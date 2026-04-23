@@ -802,6 +802,7 @@ notes="\${HOME}/.config/endeavour-post-phase3.txt"
 case "\${1:-}" in
   --show-notes)
     [[ -f "\${notes}" ]] || exit 0
+    xdg-open 'https://chromewebstore.google.com/detail/1password-%E2%80%93-password-mana/aeblfdkhhhdcdjpifhhbdiojplfjncoa' &
     foot -e sh -c "cat '\${notes}'; echo; read -r -p 'Press Enter to dismiss.' _"
     rm -f "\${notes}"
     sed -i '/exec endeavour-run-phase3 --show-notes/d' "\${autostart}" 2>/dev/null || true
@@ -1105,18 +1106,6 @@ EOF
     printf -- '--password-store=basic\n' > ~/.config/helium-browser-flags.conf
     printf -- '--password-store=basic\n' > ~/.config/chromium-flags.conf
 
-    # Force-install the 1Password extension in both Helium and ungoogled-chromium.
-    # Helium reads /etc/chromium/policies (confirmed via strings); ungoogled-chromium
-    # reads the same path.
-    sudo mkdir -p /etc/chromium/policies/managed
-    sudo tee /etc/chromium/policies/managed/1password.json > /dev/null << 'EOF'
-{
-  "ExtensionInstallForcelist": [
-    "aeblfdkhhhdcdjpifhhbdiojplfjncoa;https://clients2.google.com/service/update2/crx"
-  ]
-}
-EOF
-    etckeeper_commit "Force-install 1Password extension in Chromium/Helium."
 
     # Geolocation (disabled):
     # sudo pacman -S --noconfirm xdg-desktop-portal-gtk
