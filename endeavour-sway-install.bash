@@ -802,7 +802,7 @@ case "\${1:-}" in
     xdg-open 'https://chromewebstore.google.com/detail/1password-%E2%80%93-password-mana/aeblfdkhhhdcdjpifhhbdiojplfjncoa' &
     foot -e sh -c "cat '\${notes}'; echo; read -r -p 'Press Enter to dismiss.' _"
     rm -f "\${notes}"
-    sed -i '/exec endeavour-run-phase3 --show-notes/d' "\${autostart}" 2>/dev/null || true
+    sed -i "\\|exec ${runner} --show-notes|d" "\${autostart}" 2>/dev/null || true
     ;;
   --inner)
     log="\${HOME}/.config/endeavour-phase3.log"
@@ -818,9 +818,9 @@ case "\${1:-}" in
     if [[ \$rc -eq 0 ]]; then
         rm -f "\${warnings}"
         printf 'Manual steps remaining:\n\n  tailscale up\n  rclone config (optional)\n' > "\${notes}"
-        grep -qF 'endeavour-run-phase3 --show-notes' "\${autostart}" 2>/dev/null || \\
-            printf '\nexec endeavour-run-phase3 --show-notes\n' >> "\${autostart}"
-        sed -i '/exec endeavour-run-phase3$/d' "\${autostart}" 2>/dev/null || true
+        grep -qF '${runner} --show-notes' "\${autostart}" 2>/dev/null || \\
+            printf '\nexec ${runner} --show-notes\n' >> "\${autostart}"
+        sed -i "\\|exec ${runner}$|d" "\${autostart}" 2>/dev/null || true
         systemctl reboot
     else
         echo "Phase 3 FAILED (exit code \$rc). Log: \${log}"
