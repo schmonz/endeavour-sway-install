@@ -5,11 +5,11 @@
 #
 # Usage:
 #   Phase 1 — installer chroot (root, no systemd, no graphical session):
-#     bash endeavour-sway-install.bash --phase 1
+#     bash endeavour-sway-install.bash <username> --phase 1
 #   Phase 2 — first-boot systemd service (root, systemd running):
 #     Invoked automatically by endeavour-sway-firstboot.service.
 #   Phase 3 — first Sway session (normal user):
-#     endeavour-sway-install --phase 3
+#     endeavour-sway-install <username> --phase 3
 #
 # Phase 1 is run by the Calamares post-install hook after the Sway CE script.
 # Safe to re-run individual phases.
@@ -723,7 +723,7 @@ setup_zswap() {
 
 setup_pacman_cache() {
     pacman_install pacman-contrib
-    system_systemctl enable --now paccache.timer
+    system_systemctl enable paccache.timer
 }
 
 setup_power_saving() {
