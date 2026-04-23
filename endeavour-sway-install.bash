@@ -504,6 +504,24 @@ add_sway_poweroff_binding() {
 # With lid polling ($1=true): suspend is disabled, so no before-sleep/after-resume.
 # Without lid polling ($1=false): also lock before sleep and restore dpms on resume.
 
+build_swayidle_line() {
+    local needs_lid_poll="$1"
+    local common_idle='exec swayidle -w \
+    idlehint 1 \
+    timeout 300  '"'"'gtklock -d --lock-command "swaymsg output \* dpms off"'"'"' resume '"'"'swaymsg "output * dpms on"'"'"' \
+    lock         '"'"'gtklock -d --lock-command "swaymsg output \* dpms off"'"'"' \
+    unlock       '"'"'swaymsg "output * dpms on"'"'"''
+
+    local sleep_events='    before-sleep '"'"'gtklock -d; sleep 1'"'"' \
+    after-resume '"'"'swaymsg "output * dpms on"'"'"''
+
+    if $needs_lid_poll; then
+        printf '%s\n' "$common_idle"
+    else
+        printf '%s' "${common_idle}"$' \\\n'"${sleep_events}"$'\n'
+    fi
+}
+
 setup_swayidle() {
     local needs_lid_poll="$1"
     local autostart="$HOME/.config/sway/config.d/autostart_applications"
@@ -514,21 +532,8 @@ setup_swayidle() {
 
     sed -i '/^exec swayidle idlehint/d; /^exec_always swayidle -w before-sleep/d' "$autostart"
 
-    local common_idle='exec swayidle -w \
-    idlehint 1 \
-    timeout 300  '"'"'gtklock -d --lock-command "swaymsg output \* dpms off"'"'"' resume '"'"'swaymsg "output * dpms on"'"'"' \
-    lock         '"'"'gtklock -d --lock-command "swaymsg output \* dpms off"'"'"' \
-    unlock       '"'"'swaymsg "output * dpms on"'"'"''
-
-    local sleep_events='    before-sleep '"'"'gtklock -d; sleep 1'"'"' \
-    after-resume '"'"'swaymsg "output * dpms on"'"'"''
-
     local idle_line
-    if $needs_lid_poll; then
-        idle_line="$common_idle"
-    else
-        idle_line="${common_idle}"$' \\\n'"${sleep_events}"
-    fi
+    idle_line=$(build_swayidle_line "$needs_lid_poll")
 
     if grep -q 'swayidle' "$autostart"; then
         warn "swayidle line already present in ${autostart} — review manually."
@@ -683,16 +688,23 @@ setup_webcam() {
 
 # Idempotently add PARAMS to grub variable VAR, guarded by CHECK already present.
 # Handles empty and non-empty values, single- or double-quoted.
-add_grub_param() {
+transform_grub_param() {
     local var="$1" check="$2" params="$3"
-    sudo sed -i -E "
+    sed -E "
 /^${var}=/{
     /${check}/! {
         s/=([\"'])\1\$/=\1${params}\1/
         t
         s/=([\"'])(.*)\1\$/=\1\2 ${params}\1/
     }
-}" /etc/default/grub
+}"
+}
+
+add_grub_param() {
+    local var="$1" check="$2" params="$3"
+    local new_content
+    new_content=$(transform_grub_param "$var" "$check" "$params" < /etc/default/grub)
+    echo "$new_content" | sudo tee /etc/default/grub > /dev/null
 }
 
 setup_nvidia_display() {
@@ -1276,8 +1288,8 @@ EOF
 
 # ── Phase detection ───────────────────────────────────────────────────────────
 
-in_user_session() { [[ $EUID -ne 0 ]] || [[ -n "${SWAYSOCK:-}" ]]; }
-in_chroot()       { [[ ! -d /run/systemd/system ]]; }
+in_user_session() { [[ ${EUID_OVERRIDE:-$EUID} -ne 0 ]] || [[ -n "${SWAYSOCK:-}" ]]; }
+in_chroot()       { [[ ! -d "${PROBE_ROOT:-}/run/systemd/system" ]]; }
 
 detect_phase() {
     if in_user_session; then
