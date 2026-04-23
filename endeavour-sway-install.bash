@@ -501,12 +501,11 @@ add_sway_poweroff_binding() {
 # Sway reload spawns a duplicate. setup_swayidle replaces them with a single
 # exec_always that kills any prior instance before starting.
 #
-# On Chromebook ($1=true): suspend is disabled, so lock on timeout instead of
-# before-sleep; also handle dpms and loginctl lock-session from the lid handler.
-# On all other machines ($1=false): lock before sleep.
+# With lid polling ($1=true): suspend is disabled, so no before-sleep/after-resume.
+# Without lid polling ($1=false): also lock before sleep and restore dpms on resume.
 
 setup_swayidle() {
-    local chromebook="$1"
+    local needs_lid_poll="$1"
     local autostart="$HOME/.config/sway/config.d/autostart_applications"
     if [[ ! -f "$autostart" ]]; then
         warn "${autostart} not found — skipping swayidle config."
@@ -515,21 +514,20 @@ setup_swayidle() {
 
     sed -i '/^exec swayidle idlehint/d; /^exec_always swayidle -w before-sleep/d' "$autostart"
 
-    local idle_line
-    if $chromebook; then
-        idle_line='exec swayidle -w \
+    local common_idle='exec swayidle -w \
     idlehint 1 \
     timeout 300  '"'"'gtklock -d --lock-command "swaymsg output \* dpms off"'"'"' resume '"'"'swaymsg "output * dpms on"'"'"' \
     lock         '"'"'gtklock -d --lock-command "swaymsg output \* dpms off"'"'"' \
     unlock       '"'"'swaymsg "output * dpms on"'"'"''
-    else
-        idle_line='exec swayidle -w \
-    idlehint 1 \
-    timeout 300  '"'"'gtklock -d --lock-command "swaymsg output \* dpms off"'"'"' resume '"'"'swaymsg "output * dpms on"'"'"' \
-    lock         '"'"'gtklock -d --lock-command "swaymsg output \* dpms off"'"'"' \
-    unlock       '"'"'swaymsg "output * dpms on"'"'"' \
-    before-sleep '"'"'gtklock -d; sleep 1'"'"' \
+
+    local sleep_events='    before-sleep '"'"'gtklock -d; sleep 1'"'"' \
     after-resume '"'"'swaymsg "output * dpms on"'"'"''
+
+    local idle_line
+    if $needs_lid_poll; then
+        idle_line="$common_idle"
+    else
+        idle_line="${common_idle}"$' \\\n'"${sleep_events}"
     fi
 
     if grep -q 'swayidle' "$autostart"; then
