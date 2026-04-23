@@ -1113,6 +1113,7 @@ EOF
     # XXX but maybe that's enough for Plex (or Jellyfin)
     configure_sway_autostart 'localsend --hidden'
     # XXX configure LocalSend to use the real system hostname
+    # ~/.local/share/org.localsend.localsend_app/shared_preferences.json
 
     info "=== Phase 3: power saving ==="
     setup_power_saving
