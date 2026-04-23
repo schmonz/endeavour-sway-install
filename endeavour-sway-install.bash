@@ -651,15 +651,12 @@ setup_chromebook_fkeys() {
 }
 
 setup_mac_fan() {
-    info "Installing mbpfan ..."
     aur_install mbpfan
     sudo cp /usr/lib/systemd/system/mbpfan.service /etc/systemd/system/
     system_systemctl enable mbpfan.service
-    etckeeper_commit "Enable mbpfan Mac fan control."
 }
 
 setup_mac_light_sensors() {
-    info "Configuring clight sensor floor ..."
     # clight is installed + started in the AMBIENT_LIGHT_SENSOR block above (iio-sensor-proxy + clightd).
     # Without a floor, clight maps a dark room to 0% brightness — invisible screen.
     sudo mkdir -p /etc/clight/modules.conf.d
@@ -675,7 +672,6 @@ EOF
     #   batt_timeouts = (60, 300);
     #   screen_targets = (0.4, 0.4);
     # in /etc/clight/modules.conf.d/dimmer.conf
-    etckeeper_commit "Configure clight brightness floor (prevent invisible screen)."
 }
 
 setup_webcam() {
@@ -703,20 +699,16 @@ add_grub_param() {
 
 setup_nvidia_display() {
     # For MacBookPro5,2 so the display manager comes up on the real screen.
-    info "Disabling phantom second internal display (LVDS-2) ..."
     # Targets GRUB_CMDLINE_LINUX (not _DEFAULT) so recovery boots also get the fix.
     add_grub_param GRUB_CMDLINE_LINUX video=LVDS-2:d video=LVDS-2:d
     sudo grub-mkconfig -o /boot/grub/grub.cfg
-    etckeeper_commit "Disable second internal display (MacBookPro5,2 LVDS-2)."
 }
 
 setup_zswap() {
-    info "Enabling zswap ..."
     # Targets GRUB_CMDLINE_LINUX_DEFAULT — performance optimization, not needed in recovery.
     add_grub_param GRUB_CMDLINE_LINUX_DEFAULT zswap.enabled=1 \
         "zswap.enabled=1 zswap.compressor=zstd zswap.zpool=z3fold zswap.max_pool_percent=20"
     sudo grub-mkconfig -o /boot/grub/grub.cfg
-    etckeeper_commit "Enable zswap."
 }
 
 setup_pacman_cache() {
@@ -726,6 +718,17 @@ setup_pacman_cache() {
 
 setup_power_saving() {
     : # TLP: https://wiki.archlinux.org/title/TLP
+}
+
+setup_timeshift() {
+    system_systemctl enable cronie
+}
+
+setup_ambient_light_sensor() {
+    aur_install iio-sensor-proxy clight
+    system_systemctl enable clightd
+    configure_sway_autostart 'clight'
+    ls /sys/bus/iio/devices/*/in_illuminance* || true
 }
 
 setup_infrared_receiver() {
@@ -1097,11 +1100,11 @@ phase3() {
         dawn-writer-bin \
         claude-code claude-desktop-bin claude-cowork-service
 
-    info "=== Phase 3: timeshift ==="
-    system_systemctl enable cronie
     # XXX CLI equivalent: open the Timeshift app and follow the prompts
     # XXX once automated, this graduates to Phase 2
-    etckeeper_commit "Enable Timeshift."
+    run_setup_step setup_timeshift \
+        "=== Phase 3: timeshift ===" \
+        "Enable Timeshift."
 
     info "=== Phase 3: web browser ==="
     append_once ~/.config/sway/config.d/application_defaults \
@@ -1216,11 +1219,12 @@ EOF
     $ACPI_LID_POLL    && install_lid_handler
 
     if $AMBIENT_LIGHT_SENSOR; then
-        aur_install iio-sensor-proxy clight
-        system_systemctl enable clightd
-        configure_sway_autostart 'clight'
-        ls /sys/bus/iio/devices/*/in_illuminance* || true
-        setup_mac_light_sensors
+        run_setup_step setup_ambient_light_sensor \
+            "=== Phase 3: ambient light sensor ===" \
+            "Enable ambient light sensor (iio-sensor-proxy + clightd)."
+        run_setup_step setup_mac_light_sensors \
+            "Configuring clight brightness floor ..." \
+            "Configure clight brightness floor (prevent invisible screen)."
     fi
 
     if $KBD_BACKLIGHT; then
@@ -1238,11 +1242,17 @@ EOF
         fi
     fi
 
-    $NEEDS_MBPFAN    && setup_mac_fan
-    $HAS_FACETIMEHD  && aur_install facetimehd-dkms
-    $HAS_WEBCAM      && setup_webcam
-    $PHANTOM_LVDS2 && setup_nvidia_display
-    $NEEDS_ZSWAP   && setup_zswap
+    $NEEDS_MBPFAN   && run_setup_step setup_mac_fan \
+        "Installing mbpfan ..." \
+        "Enable mbpfan Mac fan control."
+    $HAS_FACETIMEHD && aur_install facetimehd-dkms
+    $HAS_WEBCAM     && setup_webcam
+    $PHANTOM_LVDS2  && run_setup_step setup_nvidia_display \
+        "Disabling phantom second internal display (LVDS-2) ..." \
+        "Disable second internal display (MacBookPro5,2 LVDS-2)."
+    $NEEDS_ZSWAP    && run_setup_step setup_zswap \
+        "Enabling zswap ..." \
+        "Enable zswap."
 
     if $NEEDS_SOFTWARE_GL; then
         info "Enabling software GL rendering (LIBGL_ALWAYS_SOFTWARE=1) ..."
@@ -1254,7 +1264,6 @@ EOF
     $THINKPAD_GOODIES  && setup_thinkpad_goodies
     $SWAY_POWER_KEY    && add_sway_poweroff_binding "$target_user"
 
-    etckeeper_commit "endeavour-sway: machine-specific phase-3 config."
     $POWER_KEY_UDEV_STRIP && \
         info "Note: the udev grab release requires a re-login or reboot to take full effect."
 
