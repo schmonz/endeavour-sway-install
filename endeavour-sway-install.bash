@@ -934,6 +934,9 @@ phase1() {
     detect_machine_capabilities
 
     info "=== Phase 1: pacman installs ==="
+    # Replaced by Helium in phase 3.
+    pacman -Rs --noconfirm firefox || true
+
     # XXX other cups goodies the installer was offering?
     pacman_install \
         etckeeper git git-delta \
@@ -946,10 +949,8 @@ phase1() {
         xdg-desktop-portal xdg-desktop-portal-wlr \
         eos-update-notifier \
         btop fastfetch tmux the_silver_searcher xorg-xhost \
-        apostrophe glow tig github-cli socat
-
-    # Replaced by Helium in phase 3.
-    pacman -Rs --noconfirm firefox || true
+        apostrophe glow tig github-cli socat \
+        grub-btrfs
 
     info "=== Phase 1: etckeeper init ==="
     if ! etckeeper vcs log --oneline -1 &>/dev/null; then
@@ -1097,9 +1098,9 @@ phase3() {
         claude-code claude-desktop-bin claude-cowork-service
 
     info "=== Phase 3: timeshift ==="
-    pacman_install grub-btrfs
     system_systemctl enable cronie
     # XXX CLI equivalent: open the Timeshift app and follow the prompts
+    # XXX once automated, this graduates to Phase 2
     etckeeper_commit "Enable Timeshift."
 
     info "=== Phase 3: web browser ==="
