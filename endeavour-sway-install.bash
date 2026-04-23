@@ -507,43 +507,43 @@ add_sway_poweroff_binding() {
     chown "${sway_user}:" "$target"
 }
 
-# ── Chromebook: swayidle ──────────────────────────────────────────────────────
+# ── Swayidle ──────────────────────────────────────────────────────────────────
+#
+# EOS CE ships two separate swayidle entries; one uses exec_always, so every
+# Sway reload spawns a duplicate. setup_swayidle replaces them with a single
+# exec_always that kills any prior instance before starting.
+#
+# On Chromebook ($1=true): suspend is disabled, so lock on timeout instead of
+# before-sleep; also handle dpms and loginctl lock-session from the lid handler.
+# On all other machines ($1=false): lock before sleep.
 
-configure_chromebook_swayidle() {
+setup_swayidle() {
+    local chromebook="$1"
     local autostart="$HOME/.config/sway/config.d/autostart_applications"
     if [[ ! -f "$autostart" ]]; then
         warn "${autostart} not found — skipping swayidle config."
         return
     fi
 
-    local backup="${autostart}.bak.$(date +%Y%m%d%H%M%S)"
-    info "Backing up ${autostart} to ${backup} ..."
-    cp "$autostart" "$backup"
+    sed -i '/^exec swayidle idlehint/d; /^exec_always swayidle -w before-sleep/d' "$autostart"
 
-    info "Patching swayidle in ${autostart} ..."
-
-    # Remove old sleep-triggering forms.
-    sed -i \
-        '/^exec swayidle idlehint/d;
-         /^exec_always swayidle -w before-sleep/d' \
-        "$autostart"
-
-    # Replace any bare timeout-only swayidle line with the full lock+dpms form,
-    # but only if the full form isn't already there.
-    local full_idle='exec swayidle -w \
+    local idle_line
+    if $chromebook; then
+        idle_line='exec swayidle -w \
     idlehint 1 \
     timeout 300  '"'"'gtklock -d --lock-command "swaymsg output \* dpms off"'"'"' resume '"'"'swaymsg "output * dpms on"'"'"' \
     lock         '"'"'gtklock -d --lock-command "swaymsg output \* dpms off"'"'"' \
     unlock       '"'"'swaymsg "output * dpms on"'"'"''
-
-    if grep -q 'swayidle' "$autostart"; then
-        # Already has some swayidle line; leave it alone and warn.
-        warn "swayidle line already present in ${autostart} — review manually."
-        warn "Expected form:"
-        echo "$full_idle" | sed 's/^/    /'
+        if grep -q 'swayidle' "$autostart"; then
+            warn "swayidle line already present in ${autostart} — review manually."
+            warn "Expected form:"
+            echo "$idle_line" | sed 's/^/    /'
+            return
+        fi
+        printf '\n%s\n' "$idle_line" >> "$autostart"
     else
-        printf '\n%s\n' "$full_idle" >> "$autostart"
-        info "Added swayidle line."
+        append_once "$autostart" \
+            "exec_always sh -c \"pkill -x swayidle 2>/dev/null; swayidle -w idlehint 1 before-sleep 'gtklock -d'\""
     fi
 }
 
@@ -722,9 +722,6 @@ setup_pacman_cache() {
     pacman_install pacman-contrib
     system_systemctl enable --now paccache.timer
     etckeeper_commit "Periodically clean pacman cache."
-
-    mkdir -p ~/.config/autostart
-    printf '[Desktop Entry]\nHidden=true\n' > ~/.config/autostart/welcome.desktop
 }
 
 setup_power_saving() {
@@ -776,33 +773,64 @@ EOF
     info "Script saved to ${INSTALL_SCRIPT_DEST} — call with --phase 3 after first login."
 }
 
-# ── Warnings display (set up in phase 2, fires on first Sway login) ───────────
+# ── Phase 3 auto-runner (set up in phase 2, fires on first Sway login) ────────
 
-install_warnings_displayer() {
+install_phase3_runner() {
     local target_home="$1"
-    local warnings_file="${target_home}/.config/endeavour-warnings"
-    [[ -f "$warnings_file" ]] || return 0
+    local runner="${target_home}/.local/bin/endeavour-run-phase3"
+    mkdir -p "$(dirname "$runner")"
 
-    local displayer="${target_home}/.local/bin/endeavour-show-warnings"
-    mkdir -p "$(dirname "$displayer")"
-
-    cat > "$displayer" << 'SCRIPT'
+    # INSTALL_SCRIPT_DEST expands now; \${...} expands when the runner executes.
+    cat > "$runner" << SCRIPT
 #!/bin/bash
-file="${HOME}/.config/endeavour-warnings"
-[[ -f "$file" ]] || exit 0
-foot -e sh -c "cat '$file'; echo; read -r -p 'Press Enter to dismiss.' _"
-rm -f "$file"
-sed -i '/exec endeavour-show-warnings/d' \
-    "${HOME}/.config/sway/config.d/autostart_applications" 2>/dev/null || true
+autostart="\${HOME}/.config/sway/config.d/autostart_applications"
+notes="\${HOME}/.config/endeavour-post-phase3.txt"
+
+case "\${1:-}" in
+  --show-notes)
+    [[ -f "\${notes}" ]] || exit 0
+    foot -e sh -c "cat '\${notes}'; echo; read -r -p 'Press Enter to dismiss.' _"
+    rm -f "\${notes}"
+    sed -i '/exec endeavour-run-phase3 --show-notes/d' "\${autostart}" 2>/dev/null || true
+    ;;
+  --inner)
+    log="\${HOME}/.config/endeavour-phase3.log"
+    warnings="\${HOME}/.config/endeavour-warnings"
+    if [[ -f "\${warnings}" ]]; then
+        echo '=== Phase 2 notes ==='
+        cat "\${warnings}"
+        echo
+    fi
+    ${INSTALL_SCRIPT_DEST} "\${USER}" --phase 3 2>&1 | tee "\${log}"
+    rc=\${PIPESTATUS[0]}
+    echo
+    if [[ \$rc -eq 0 ]]; then
+        rm -f "\${warnings}"
+        printf 'Manual steps remaining:\n\n  tailscale up\n  rclone config (optional)\n' > "\${notes}"
+        grep -qF 'endeavour-run-phase3 --show-notes' "\${autostart}" 2>/dev/null || \\
+            printf '\nexec endeavour-run-phase3 --show-notes\n' >> "\${autostart}"
+        echo 'Phase 3 complete. Rebooting in 5 seconds...'
+        sed -i '/exec endeavour-run-phase3$/d' "\${autostart}" 2>/dev/null || true
+        sleep 5
+        systemctl reboot
+    else
+        echo "Phase 3 FAILED (exit code \$rc). Log: \${log}"
+        read -r -p 'Press Enter to dismiss.' _
+    fi
+    ;;
+  *)
+    foot -e "\$0" --inner
+    ;;
+esac
 SCRIPT
-    chmod +x "$displayer"
+    chmod +x "$runner"
 
     local autostart="${target_home}/.config/sway/config.d/autostart_applications"
     if [[ -f "$autostart" ]]; then
-        append_once "$autostart" "exec endeavour-show-warnings"
+        append_once "$autostart" "exec endeavour-run-phase3"
     else
-        warn "${autostart} not found — warnings displayer autostart skipped."
-        warn "Run ${displayer} manually on first login."
+        warn "${autostart} not found — phase 3 autostart skipped."
+        warn "Run ${runner} manually on first login."
     fi
 }
 
@@ -951,6 +979,9 @@ phase2() {
     # bluetoothctl pairing: https://wiki.archlinux.org/title/Bluetooth#Pairing
     system_systemctl enable tailscaled
 
+    info "=== Phase 2: pacman cache ==="
+    setup_pacman_cache
+
     info "=== Phase 2: firewall (daemon now running) ==="
     firewall-cmd --set-default-zone=home || true
     firewall-cmd --reload || true
@@ -977,18 +1008,15 @@ EOF
     rm -f "$FIRSTBOOT_SERVICE"
     etckeeper commit -m 'Remove phase-2 firstboot service.' 2>/dev/null || true
 
-    local phase3_cmd="${INSTALL_SCRIPT_DEST} ${target_user}"
-    info "=== Phase 2: warnings displayer ==="
-    echo "Phase 3 not yet run. In a Sway terminal: ${phase3_cmd}" >> "$WARNINGS_FILE"
+    info "=== Phase 2: phase 3 autostart ==="
     if [[ -f "$WARNINGS_FILE" ]]; then
         install -D -o "$target_user" "$WARNINGS_FILE" "${target_home}/.config/endeavour-warnings"
         rm -f "$WARNINGS_FILE"
     fi
-    install_warnings_displayer "$target_home"
+    install_phase3_runner "$target_home"
 
     info ""
-    info "Phase 2 complete. Log in to Sway, then run:"
-    info "  ${phase3_cmd}"
+    info "Phase 2 complete. Log in to Sway — phase 3 will start automatically."
 }
 
 # ── Phase 3: first Sway session ───────────────────────────────────────────────
@@ -1016,12 +1044,20 @@ phase3() {
     system_systemctl enable cronie
     # XXX CLI equivalent: open the Timeshift app and follow the prompts
     etckeeper_commit "Enable Timeshift."
-    setup_pacman_cache
 
     info "=== Phase 3: web browser ==="
     append_once ~/.config/sway/config.d/application_defaults \
         'for_window [app_id="helium"] inhibit_idle fullscreen'
     sed -i 's|exec firefox|exec xdg-open https://|g' ~/.config/sway/config.d/default
+
+    # Mimic the user clicking "don't open at login" in EOS Welcome.
+    local wconf="$HOME/.config/EOS-greeter.conf"
+    if grep -q "^Greeter=" "$wconf" 2>/dev/null; then
+        sed -i 's|^Greeter=.*|Greeter=disable|' "$wconf"
+    else
+        printf 'Greeter=disable\nLastCheck=0\nOnceDaily=no\n' > "$wconf"
+    fi
+
     mkdir -p ~/.local/share/applications/kde4
     printf '[Desktop Entry]\nHidden=true\n' > ~/.local/share/applications/chromium.desktop
     printf '[Desktop Entry]\nHidden=true\n' > ~/.local/share/applications/kde4/webapp-manager.desktop
@@ -1036,12 +1072,19 @@ text/html=helium.desktop
 application/xhtml+xml=helium.desktop
 EOF
 
-    # Restore previous session on startup (written before first launch so
-    # Chromium picks it up as initial preferences).
-    mkdir -p ~/.config/net.imput.helium ~/.config/chromium
-    printf '{"session":{"restore_on_startup":1}}\n' \
+    # Suppress first-run wizard and restore session on startup.
+    # initial_preferences seeds preferences if Default/Preferences doesn't exist yet.
+    # Writing Default/Preferences directly is a belt-and-suspenders fallback: its
+    # presence alone signals "already configured" and skips the first-run wizard.
+    local _prefs='{"browser":{"check_default_browser":false},"session":{"restore_on_startup":1}}'
+    local _init='{"browser":{"check_default_browser":false},"distribution":{"skip_first_run_ui":true,"suppress_first_run_bubble":true,"show_welcome_page":false},"session":{"restore_on_startup":1}}'
+    mkdir -p ~/.config/net.imput.helium/Default ~/.config/chromium/Default
+    printf '%s\n' "$_init" \
         | tee ~/.config/net.imput.helium/initial_preferences \
               ~/.config/chromium/initial_preferences > /dev/null
+    printf '%s\n' "$_prefs" \
+        | tee ~/.config/net.imput.helium/Default/Preferences \
+              ~/.config/chromium/Default/Preferences > /dev/null
 
     # Use basic password store so neither browser prompts for a keyring
     # password. Actual credentials live in 1Password; this only affects
@@ -1073,11 +1116,11 @@ EOF
     sway_autostart_and_also_start_now '1password'
 
     info "=== Phase 3: networking ==="
-    sudo tailscale set --operator="$USER"
+    sudo systemctl start tailscaled 2>/dev/null || true
+    sudo tailscale set --operator="$USER" || true
     sway_autostart_and_also_start_now 'tailscale systray' true
-    tailscale up
-    tailscale set --accept-dns=true
-    tailscale set --accept-routes
+    tailscale set --accept-dns=true || true
+    tailscale set --accept-routes || true
     etckeeper_commit "Enable Tailscale."
     # XXX maybe exit node also isn't working? admin console says:
     # XXX   "This machine is misconfigured and cannot relay traffic."
@@ -1124,14 +1167,14 @@ EOF
     # Token expires monthly (~30 days).
     # https://forum.rclone.org/t/icloud-connect-not-working-http-error-400/52019/44
 
+    info "=== Phase 3: swayidle ==="
+    setup_swayidle $ACPI_LID_POLL
+
     info "=== Phase 3: machine-specific ==="
 
     $CHROMEBOOK_AUDIO && setup_chromebook_audio
     $CHROMEBOOK_FKEYS && setup_chromebook_fkeys
-    if $ACPI_LID_POLL; then
-        configure_chromebook_swayidle
-        install_lid_handler
-    fi
+    $ACPI_LID_POLL    && install_lid_handler
 
     if $AMBIENT_LIGHT_SENSOR; then
         aur_install iio-sensor-proxy clight
