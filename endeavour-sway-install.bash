@@ -987,6 +987,7 @@ phase2() {
     etckeeper_commit "Enable Bluetooth."
     # bluetoothctl pairing: https://wiki.archlinux.org/title/Bluetooth#Pairing
     system_systemctl enable tailscaled
+    etckeeper_commit "Enable Tailscale daemon."
 
     info "=== Phase 2: pacman cache ==="
     setup_pacman_cache
