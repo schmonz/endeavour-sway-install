@@ -118,19 +118,16 @@ user_systemctl() {
 
 # Register CMD in the Sway autostart config and launch it now if in a session.
 # Pass pkill=true to kill any prior instance first (for systray singletons).
-sway_autostart_and_also_start_now() {
+configure_sway_autostart() {
     local cmd="$1" pkill="${2:-false}"
+    local autostart="${3:-${HOME}/.config/sway/config.d/autostart_applications}"
     local line
     if $pkill; then
         line="exec sh -c \"pkill -f '$cmd' 2>/dev/null; $cmd\""
     else
         line="exec $cmd"
     fi
-    append_once ~/.config/sway/config.d/autostart_applications "$line"
-    if [[ -n "${SWAYSOCK:-}" ]]; then
-        $pkill && pkill -f "$cmd" 2>/dev/null
-        eval "$cmd" </dev/null &>/dev/null &
-    fi
+    append_once "$autostart" "$line"
 }
 
 # Clone URL into DIR only if DIR doesn't already exist.
@@ -841,7 +838,7 @@ SCRIPT
 
     local autostart="${target_home}/.config/sway/config.d/autostart_applications"
     if [[ -f "$autostart" ]]; then
-        append_once "$autostart" "exec endeavour-run-phase3"
+        configure_sway_autostart "${runner}" false "${autostart}"
     else
         warn "${autostart} not found — phase 3 autostart skipped."
         warn "Run ${runner} manually on first login."
@@ -1115,27 +1112,24 @@ EOF
     # swaymsg_reload
 
     info "=== Phase 3: passwords ==="
-    sway_autostart_and_also_start_now '1password'
+    configure_sway_autostart '1password'
 
     info "=== Phase 3: networking ==="
-    sudo systemctl start tailscaled 2>/dev/null || true
     sudo tailscale set --operator="$USER" || true
-    sway_autostart_and_also_start_now 'tailscale systray' true
+    configure_sway_autostart 'tailscale systray' true
     tailscale set --accept-dns=true || true
     tailscale set --accept-routes || true
-    etckeeper_commit "Enable Tailscale."
     # XXX maybe exit node also isn't working? admin console says:
     # XXX   "This machine is misconfigured and cannot relay traffic."
     # XXX but maybe that's enough for Plex (or Jellyfin)
-    sway_autostart_and_also_start_now 'localsend --hidden'
+    configure_sway_autostart 'localsend --hidden'
     # XXX configure LocalSend to use the real system hostname
-    info "Log out and back in for Thunar Network view to show shares."
 
     info "=== Phase 3: power saving ==="
     setup_power_saving
 
     info "=== Phase 3: firmware updates ==="
-    fwupdmgr get-updates || true
+    echo y | fwupdmgr get-updates || true
     fwupdmgr update || true
     # MrChromebox firmware: https://docs.mrchromebox.tech/docs/firmware/updating-firmware.html
 
@@ -1146,19 +1140,15 @@ EOF
 
     info "=== Phase 3: update notifier ==="
     eos-update-notifier -init
-    etckeeper_commit "Configure eos-update-notifier."
     # XXX runs on a timer -- how often?
     # XXX show up in Waybar?
 
     info "=== Phase 3: other tools ==="
     sed -i 's/htop/btop/g' ~/.config/waybar/config
     sed -i 's/waybar_htop/waybar_btop/g' ~/.config/sway/config.d/application_defaults
-    pkill -USR2 waybar || true
 
     info "Configuring Foot URL launching ..."
     sed -i 's|^# launch=xdg-open \${url}$|launch=xdg-open ${url}|' ~/.config/foot/foot.ini
-
-    etckeeper_commit "Install development tools."
 
     # info "=== Phase 3: cloud storage ==="
     # rclone config
@@ -1181,7 +1171,7 @@ EOF
     if $AMBIENT_LIGHT_SENSOR; then
         aur_install iio-sensor-proxy clight
         system_systemctl enable clightd
-        sway_autostart_and_also_start_now 'clight'
+        configure_sway_autostart 'clight'
         ls /sys/bus/iio/devices/*/in_illuminance* || true
         setup_mac_light_sensors
     fi
@@ -1221,10 +1211,8 @@ EOF
     $POWER_KEY_UDEV_STRIP && \
         info "Note: the udev grab release requires a re-login or reboot to take full effect."
 
-    swaymsg_reload
-
     info ""
-    info "Phase 3 complete. Log out and back in."
+    info "Phase 3 complete. Reboot to apply all changes."
     info "  Remaining interactive steps: tailscale up (if not done), rclone config."
     # XXX lid close: mute, lock, suspend
     # XXX cursor to lower right: lock and sleep display
