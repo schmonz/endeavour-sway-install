@@ -80,15 +80,6 @@ require_sudo() {
     sudo -v || die "sudo credentials required."
 }
 
-swaymsg_reload() {
-    if [[ -n "${SWAYSOCK:-}" ]]; then
-        info "Reloading Sway config ..."
-        swaymsg reload
-    else
-        warn "Not in a Sway session — reload manually: swaymsg reload"
-    fi
-}
-
 # Append LINE to FILE only if not already present.
 append_once() {
     local file="$1" line="$2"
@@ -1108,7 +1099,6 @@ EOF
     # systemctl --user enable --now xdg-desktop-portal xdg-desktop-portal-gtk
     # sed -i 's/import-environment DISPLAY WAYLAND_DISPLAY SWAYSOCK/import-environment DISPLAY WAYLAND_DISPLAY SWAYSOCK XDG_CURRENT_DESKTOP/' \
     #     ~/.config/sway/config.d/autostart_applications
-    # swaymsg_reload
 
     info "=== Phase 3: passwords ==="
     configure_sway_autostart '1password'
