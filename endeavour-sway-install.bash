@@ -534,17 +534,23 @@ setup_swayidle() {
     timeout 300  '"'"'gtklock -d --lock-command "swaymsg output \* dpms off"'"'"' resume '"'"'swaymsg "output * dpms on"'"'"' \
     lock         '"'"'gtklock -d --lock-command "swaymsg output \* dpms off"'"'"' \
     unlock       '"'"'swaymsg "output * dpms on"'"'"''
-        if grep -q 'swayidle' "$autostart"; then
-            warn "swayidle line already present in ${autostart} — review manually."
-            warn "Expected form:"
-            echo "$idle_line" | sed 's/^/    /'
-            return
-        fi
-        printf '\n%s\n' "$idle_line" >> "$autostart"
     else
-        append_once "$autostart" \
-            "exec_always sh -c \"pkill -x swayidle 2>/dev/null; swayidle -w idlehint 1 before-sleep 'gtklock -d'\""
+        idle_line='exec swayidle -w \
+    idlehint 1 \
+    timeout 300  '"'"'gtklock -d --lock-command "swaymsg output \* dpms off"'"'"' resume '"'"'swaymsg "output * dpms on"'"'"' \
+    lock         '"'"'gtklock -d --lock-command "swaymsg output \* dpms off"'"'"' \
+    unlock       '"'"'swaymsg "output * dpms on"'"'"' \
+    before-sleep '"'"'gtklock -d; sleep 1'"'"' \
+    after-resume '"'"'swaymsg "output * dpms on"'"'"''
     fi
+
+    if grep -q 'swayidle' "$autostart"; then
+        warn "swayidle line already present in ${autostart} — review manually."
+        warn "Expected form:"
+        echo "$idle_line" | sed 's/^/    /'
+        return
+    fi
+    printf '\n%s\n' "$idle_line" >> "$autostart"
 }
 
 # ── Chromebook: lid handler service ──────────────────────────────────────────
