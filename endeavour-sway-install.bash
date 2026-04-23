@@ -722,7 +722,6 @@ setup_zswap() {
 setup_pacman_cache() {
     pacman_install pacman-contrib
     system_systemctl enable --now paccache.timer
-    etckeeper_commit "Periodically clean pacman cache."
 }
 
 setup_power_saving() {
@@ -772,7 +771,6 @@ EOF
     system_systemctl --not-now enable endeavour-sway-firstboot.service
     info "First-boot service installed and enabled."
     info "Script saved to ${INSTALL_SCRIPT_DEST} — call with --phase 3 after first login."
-    etckeeper_commit "Install first-boot service."
 }
 
 # ── Phase 3 auto-runner (set up in phase 2, fires on first Sway login) ────────
@@ -835,7 +833,16 @@ SCRIPT
     fi
 }
 
-# ── Setup steps (called by phases 1 and 2) ───────────────────────────────────
+# Show MSG, run FUNC (with any extra args), then commit to etckeeper.
+run_setup_step() {
+    local func="$1" msg="$2" commit_msg="$3"
+    shift 3
+    info "$msg"
+    "$func" "$@"
+    etckeeper_commit "$commit_msg"
+}
+
+# ── Setup steps (called via run_setup_step) ───────────────────────────────────
 
 setup_autologin() {
     local user="$1"
@@ -850,7 +857,6 @@ setup_autologin() {
 command = "sway"
 user = "${user}"
 EOF
-    etckeeper_commit "Enable autologin."
 }
 
 setup_keyboard_layout() {
@@ -864,38 +870,32 @@ Section "InputClass"
     Option "XkbVariant" "mac"
 EndSection
 EOF
-    etckeeper_commit "Enable Mac-like accents with Right-Alt."
 }
 
 setup_1password_browser_integration() {
     mkdir -p /etc/1password
     grep -qF 'helium' /etc/1password/custom_allowed_browsers 2>/dev/null \
         || echo 'helium' >> /etc/1password/custom_allowed_browsers
-    etckeeper_commit "Allow Helium browser in 1Password."
 }
 
 setup_eos_update_notifier_conf() {
     sed -i 's|ShowHowAboutUpdates=notify\b|ShowHowAboutUpdates=notify+tray|' \
         /etc/eos-update-notifier.conf 2>/dev/null || true
-    etckeeper_commit "Configure eos-update-notifier to use system tray."
 }
 
 setup_firewall_zone() {
     firewall-cmd --set-default-zone=home --permanent \
         || warn "firewall-cmd --set-default-zone failed (will retry in phase 2)."
-    etckeeper_commit "Set default firewall zone to 'home'."
 }
 
 setup_firewall_localsend() {
     firewall-cmd --add-port=53317/tcp --permanent || true
     firewall-cmd --add-port=53317/udp --permanent || true
-    etckeeper_commit "Allow LocalSend through firewall."
 }
 
 setup_systemd_resolved() {
     ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
     system_systemctl --not-now enable systemd-resolved
-    etckeeper_commit "Enable systemd-resolved."
 }
 
 setup_logind_config() {
@@ -905,24 +905,20 @@ setup_logind_config() {
         configure_logind_common
     fi
     $POWER_KEY_UDEV_STRIP && write_thinkpad_udev_rule
-    etckeeper_commit "Configure logind and sleep settings."
 }
 
 setup_bluetooth() {
     system_systemctl enable bluetooth
     # bluetoothctl pairing: https://wiki.archlinux.org/title/Bluetooth#Pairing
-    etckeeper_commit "Enable Bluetooth."
 }
 
 setup_tailscaled() {
     system_systemctl enable tailscaled
-    etckeeper_commit "Enable Tailscale daemon."
 }
 
 remove_firstboot_service() {
     system_systemctl disable endeavour-sway-firstboot.service 2>/dev/null || true
     rm -f "$FIRSTBOOT_SERVICE"
-    etckeeper_commit "Remove phase-2 firstboot service."
 }
 
 # ── Phase 1: installer chroot ─────────────────────────────────────────────────
@@ -960,11 +956,13 @@ phase1() {
         etckeeper init
     fi
 
-    info "=== Phase 1: autologin ==="
-    setup_autologin "$target_user"
+    run_setup_step setup_autologin \
+        "=== Phase 1: autologin ===" \
+        "Enable autologin." "$target_user"
 
-    info "=== Phase 1: macOS keyboard layout ==="
-    setup_keyboard_layout
+    run_setup_step setup_keyboard_layout \
+        "=== Phase 1: macOS keyboard layout ===" \
+        "Enable Mac-like accents with Right-Alt."
 
     info "=== Phase 1: pbcopy / pbpaste ==="
     mkdir -p /usr/local/bin
@@ -972,24 +970,33 @@ phase1() {
     printf '#!/bin/sh\nexec wl-paste --no-newline "$@"\n' > /usr/local/bin/pbpaste
     chmod +x /usr/local/bin/pbcopy /usr/local/bin/pbpaste
 
-    info "=== Phase 1: 1Password browser integration ==="
-    setup_1password_browser_integration
+    run_setup_step setup_1password_browser_integration \
+        "=== Phase 1: 1Password browser integration ===" \
+        "Allow Helium browser in 1Password."
 
-    info "=== Phase 1: eos-update-notifier ==="
-    setup_eos_update_notifier_conf
+    run_setup_step setup_eos_update_notifier_conf \
+        "=== Phase 1: eos-update-notifier ===" \
+        "Configure eos-update-notifier to use system tray."
 
-    info "=== Phase 1: firewall (permanent rules, no daemon needed) ==="
-    setup_firewall_zone
-    setup_firewall_localsend
+    run_setup_step setup_firewall_zone \
+        "=== Phase 1: firewall zone ===" \
+        "Set default firewall zone to 'home'."
 
-    info "=== Phase 1: systemd-resolved ==="
-    setup_systemd_resolved
+    run_setup_step setup_firewall_localsend \
+        "=== Phase 1: firewall LocalSend ===" \
+        "Allow LocalSend through firewall."
 
-    info "=== Phase 1: logind / sleep config ==="
-    setup_logind_config
+    run_setup_step setup_systemd_resolved \
+        "=== Phase 1: systemd-resolved ===" \
+        "Enable systemd-resolved."
 
-    info "=== Phase 1: first-boot service ==="
-    install_firstboot_service
+    run_setup_step setup_logind_config \
+        "=== Phase 1: logind / sleep config ===" \
+        "Configure logind and sleep settings."
+
+    run_setup_step install_firstboot_service \
+        "=== Phase 1: first-boot service ===" \
+        "Install first-boot service."
 
     info ""
     info "Phase 1 complete. Reboot — phase 2 will run automatically on first boot."
@@ -1030,12 +1037,17 @@ phase2() {
         git -C /etc branch -m "$(hostname)"
     fi
 
-    info "=== Phase 2: systemctl enables ==="
-    setup_bluetooth
-    setup_tailscaled
+    run_setup_step setup_bluetooth \
+        "=== Phase 2: Bluetooth ===" \
+        "Enable Bluetooth."
 
-    info "=== Phase 2: pacman cache ==="
-    setup_pacman_cache
+    run_setup_step setup_tailscaled \
+        "=== Phase 2: Tailscale ===" \
+        "Enable Tailscale daemon."
+
+    run_setup_step setup_pacman_cache \
+        "=== Phase 2: pacman cache ===" \
+        "Periodically clean pacman cache."
 
     info "=== Phase 2: firewall (daemon now running) ==="
     firewall-cmd --set-default-zone=home || true
@@ -1045,11 +1057,13 @@ phase2() {
     $POWER_KEY_UDEV_STRIP && reload_thinkpad_udev
     restart_logind
 
-    info "=== Phase 2: autologin (re-apply if installer overwrote greetd.conf) ==="
-    setup_autologin "$target_user"
+    run_setup_step setup_autologin \
+        "=== Phase 2: autologin (re-apply if installer overwrote greetd.conf) ===" \
+        "Enable autologin." "$target_user"
 
-    info "=== Phase 2: remove firstboot service ==="
-    remove_firstboot_service
+    run_setup_step remove_firstboot_service \
+        "=== Phase 2: remove firstboot service ===" \
+        "Remove phase-2 firstboot service."
 
     info "=== Phase 2: phase 3 autostart ==="
     if [[ -f "$WARNINGS_FILE" ]]; then
