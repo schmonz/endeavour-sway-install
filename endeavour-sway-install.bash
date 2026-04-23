@@ -772,6 +772,7 @@ EOF
     system_systemctl --not-now enable endeavour-sway-firstboot.service
     info "First-boot service installed and enabled."
     info "Script saved to ${INSTALL_SCRIPT_DEST} — call with --phase 3 after first login."
+    etckeeper_commit "Install first-boot service."
 }
 
 # ── Phase 3 auto-runner (set up in phase 2, fires on first Sway login) ────────
@@ -834,6 +835,96 @@ SCRIPT
     fi
 }
 
+# ── Setup steps (called by phases 1 and 2) ───────────────────────────────────
+
+setup_autologin() {
+    local user="$1"
+    # https://github.com/EndeavourOS-Community-Editions/sway/issues/105
+    if grep -q 'initial_session' /etc/greetd/greetd.conf; then
+        info "Autologin already configured."
+        return
+    fi
+    tee -a /etc/greetd/greetd.conf > /dev/null << EOF
+
+[initial_session]
+command = "sway"
+user = "${user}"
+EOF
+    etckeeper_commit "Enable autologin."
+}
+
+setup_keyboard_layout() {
+    # localectl requires systemd-localed; write the config file directly instead.
+    mkdir -p /etc/X11/xorg.conf.d
+    tee /etc/X11/xorg.conf.d/00-keyboard.conf > /dev/null << 'EOF'
+Section "InputClass"
+    Identifier "system-keyboard"
+    MatchIsKeyboard "on"
+    Option "XkbLayout" "us"
+    Option "XkbVariant" "mac"
+EndSection
+EOF
+    etckeeper_commit "Enable Mac-like accents with Right-Alt."
+}
+
+setup_1password_browser_integration() {
+    mkdir -p /etc/1password
+    grep -qF 'helium' /etc/1password/custom_allowed_browsers 2>/dev/null \
+        || echo 'helium' >> /etc/1password/custom_allowed_browsers
+    etckeeper_commit "Allow Helium browser in 1Password."
+}
+
+setup_eos_update_notifier_conf() {
+    sed -i 's|ShowHowAboutUpdates=notify\b|ShowHowAboutUpdates=notify+tray|' \
+        /etc/eos-update-notifier.conf 2>/dev/null || true
+    etckeeper_commit "Configure eos-update-notifier to use system tray."
+}
+
+setup_firewall_zone() {
+    firewall-cmd --set-default-zone=home --permanent \
+        || warn "firewall-cmd --set-default-zone failed (will retry in phase 2)."
+    etckeeper_commit "Set default firewall zone to 'home'."
+}
+
+setup_firewall_localsend() {
+    firewall-cmd --add-port=53317/tcp --permanent || true
+    firewall-cmd --add-port=53317/udp --permanent || true
+    etckeeper_commit "Allow LocalSend through firewall."
+}
+
+setup_systemd_resolved() {
+    ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+    system_systemctl --not-now enable systemd-resolved
+    etckeeper_commit "Enable systemd-resolved."
+}
+
+setup_logind_config() {
+    if $DISABLE_SLEEP; then
+        configure_logind_chromebook
+    else
+        configure_logind_common
+    fi
+    $POWER_KEY_UDEV_STRIP && write_thinkpad_udev_rule
+    etckeeper_commit "Configure logind and sleep settings."
+}
+
+setup_bluetooth() {
+    system_systemctl enable bluetooth
+    # bluetoothctl pairing: https://wiki.archlinux.org/title/Bluetooth#Pairing
+    etckeeper_commit "Enable Bluetooth."
+}
+
+setup_tailscaled() {
+    system_systemctl enable tailscaled
+    etckeeper_commit "Enable Tailscale daemon."
+}
+
+remove_firstboot_service() {
+    system_systemctl disable endeavour-sway-firstboot.service 2>/dev/null || true
+    rm -f "$FIRSTBOOT_SERVICE"
+    etckeeper_commit "Remove phase-2 firstboot service."
+}
+
 # ── Phase 1: installer chroot ─────────────────────────────────────────────────
 
 phase1() {
@@ -870,31 +961,10 @@ phase1() {
     fi
 
     info "=== Phase 1: autologin ==="
-    # https://github.com/EndeavourOS-Community-Editions/sway/issues/105
-    if ! grep -q 'initial_session' /etc/greetd/greetd.conf; then
-        tee -a /etc/greetd/greetd.conf > /dev/null << EOF
-
-[initial_session]
-command = "sway"
-user = "${target_user}"
-EOF
-    else
-        info "Autologin already configured."
-    fi
-    etckeeper_commit "Enable autologin."
+    setup_autologin "$target_user"
 
     info "=== Phase 1: macOS keyboard layout ==="
-    # localectl requires systemd-localed; write the config file directly instead.
-    mkdir -p /etc/X11/xorg.conf.d
-    tee /etc/X11/xorg.conf.d/00-keyboard.conf > /dev/null << 'EOF'
-Section "InputClass"
-    Identifier "system-keyboard"
-    MatchIsKeyboard "on"
-    Option "XkbLayout" "us"
-    Option "XkbVariant" "mac"
-EndSection
-EOF
-    etckeeper_commit "Enable Mac-like accents with Right-Alt."
+    setup_keyboard_layout
 
     info "=== Phase 1: pbcopy / pbpaste ==="
     mkdir -p /usr/local/bin
@@ -903,33 +973,20 @@ EOF
     chmod +x /usr/local/bin/pbcopy /usr/local/bin/pbpaste
 
     info "=== Phase 1: 1Password browser integration ==="
-    mkdir -p /etc/1password
-    grep -qF 'helium' /etc/1password/custom_allowed_browsers 2>/dev/null \
-        || echo 'helium' >> /etc/1password/custom_allowed_browsers
+    setup_1password_browser_integration
 
     info "=== Phase 1: eos-update-notifier ==="
-    sed -i 's|ShowHowAboutUpdates=notify\b|ShowHowAboutUpdates=notify+tray|' \
-        /etc/eos-update-notifier.conf 2>/dev/null || true
+    setup_eos_update_notifier_conf
 
     info "=== Phase 1: firewall (permanent rules, no daemon needed) ==="
-    firewall-cmd --set-default-zone=home --permanent \
-        || warn "firewall-cmd --set-default-zone failed (will retry in phase 2)."
-    etckeeper_commit "Set default firewall zone to 'home'."
-    firewall-cmd --add-port=53317/tcp --permanent || true
-    firewall-cmd --add-port=53317/udp --permanent || true
-    etckeeper_commit "Allow LocalSend through firewall."
+    setup_firewall_zone
+    setup_firewall_localsend
 
     info "=== Phase 1: systemd-resolved ==="
-    ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
-    system_systemctl --not-now enable systemd-resolved
+    setup_systemd_resolved
 
     info "=== Phase 1: logind / sleep config ==="
-    if $DISABLE_SLEEP; then
-        configure_logind_chromebook
-    else
-        configure_logind_common
-    fi
-    $POWER_KEY_UDEV_STRIP && write_thinkpad_udev_rule
+    setup_logind_config
 
     info "=== Phase 1: first-boot service ==="
     install_firstboot_service
@@ -974,11 +1031,8 @@ phase2() {
     fi
 
     info "=== Phase 2: systemctl enables ==="
-    system_systemctl enable bluetooth
-    etckeeper_commit "Enable Bluetooth."
-    # bluetoothctl pairing: https://wiki.archlinux.org/title/Bluetooth#Pairing
-    system_systemctl enable tailscaled
-    etckeeper_commit "Enable Tailscale daemon."
+    setup_bluetooth
+    setup_tailscaled
 
     info "=== Phase 2: pacman cache ==="
     setup_pacman_cache
@@ -991,23 +1045,11 @@ phase2() {
     $POWER_KEY_UDEV_STRIP && reload_thinkpad_udev
     restart_logind
 
-    etckeeper commit -m 'endeavour-sway: phase-2 first-boot config.' 2>/dev/null || true
-
     info "=== Phase 2: autologin (re-apply if installer overwrote greetd.conf) ==="
-    if ! grep -q 'initial_session' /etc/greetd/greetd.conf; then
-        tee -a /etc/greetd/greetd.conf > /dev/null << EOF
-
-[initial_session]
-command = "sway"
-user = "${target_user}"
-EOF
-        etckeeper commit -m 'Enable greetd autologin.' 2>/dev/null || true
-    fi
+    setup_autologin "$target_user"
 
     info "=== Phase 2: remove firstboot service ==="
-    system_systemctl disable endeavour-sway-firstboot.service 2>/dev/null || true
-    rm -f "$FIRSTBOOT_SERVICE"
-    etckeeper commit -m 'Remove phase-2 firstboot service.' 2>/dev/null || true
+    remove_firstboot_service
 
     info "=== Phase 2: phase 3 autostart ==="
     if [[ -f "$WARNINGS_FILE" ]]; then
