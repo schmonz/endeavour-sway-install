@@ -820,9 +820,7 @@ case "\${1:-}" in
         printf 'Manual steps remaining:\n\n  tailscale up\n  rclone config (optional)\n' > "\${notes}"
         grep -qF 'endeavour-run-phase3 --show-notes' "\${autostart}" 2>/dev/null || \\
             printf '\nexec endeavour-run-phase3 --show-notes\n' >> "\${autostart}"
-        echo 'Phase 3 complete. Rebooting in 5 seconds...'
         sed -i '/exec endeavour-run-phase3$/d' "\${autostart}" 2>/dev/null || true
-        sleep 5
         systemctl reboot
     else
         echo "Phase 3 FAILED (exit code \$rc). Log: \${log}"
@@ -1212,8 +1210,8 @@ EOF
         info "Note: the udev grab release requires a re-login or reboot to take full effect."
 
     info ""
-    info "Phase 3 complete. Reboot to apply all changes."
-    info "  Remaining interactive steps: tailscale up (if not done), rclone config."
+    info "Phase 3 complete."
+    info "  Remaining interactive steps after reboot: tailscale up, rclone config (optional)."
     # XXX lid close: mute, lock, suspend
     # XXX cursor to lower right: lock and sleep display
     # XXX cursor to upper right: lock
