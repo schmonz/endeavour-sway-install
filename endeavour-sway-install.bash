@@ -157,7 +157,11 @@ probe_lid_events() {
 
 # HAS_POWERBUTTON_EVENTS: LNXPWRBN power button events reach the UI, so there's
 # no "exclusive grab" from logind that we need to override with udev.
-probe_powerbutton_events() { # arg: concatenated udevadm info for LNXPWRBN devices
+# A non-LNXPWRBN "Power Button" (e.g. Apple firmware button on Mac) bypasses
+# logind's exclusive grab and delivers events directly to libinput, so HAS_POWERBUTTON_EVENTS
+# stays true even if the LNXPWRBN device has the power-switch tag.
+probe_powerbutton_events() { # args: LNXPWRBN udevadm output, has_non_lnxpwrbn_power_button
+    ${2:-false} && return 0
     grep -q "power-switch" <<< "${1:-}" && HAS_POWERBUTTON_EVENTS=false || true
 }
 
@@ -251,21 +255,27 @@ detect_machine_capabilities() {
     lspci_out=$(_sudo lspci -n 2>/dev/null || true)
     total_mem_kb=$(awk '/MemTotal/{print $2}' /proc/meminfo 2>/dev/null || echo 0)
 
-    # Collect udevadm output for LNXPWRBN power-button input devices.
+    # Collect udevadm output for LNXPWRBN power-button input devices, and note
+    # whether any "Power Button" device has a non-LNXPWRBN phys (e.g. Apple
+    # firmware button), which bypasses logind's exclusive grab.
     udev_power_out=""
+    local has_non_lnx_power_button=false
     for input_dir in /sys/class/input/input*/; do
         name=$(cat "${input_dir}name" 2>/dev/null || true)
         phys=$(cat "${input_dir}phys" 2>/dev/null || true)
-        if [[ "$name" == "Power Button" && "$phys" == *LNXPWRBN* ]]; then
+        [[ "$name" == "Power Button" ]] || continue
+        if [[ "$phys" == *LNXPWRBN* ]]; then
             for evdir in "${input_dir}"event*/; do
                 udev_power_out+=$(_sudo udevadm info "/dev/input/$(basename "$evdir")" 2>/dev/null || true)
             done
+        else
+            has_non_lnx_power_button=true
         fi
     done
 
     probe_has_resume            "$bios"
     probe_lid_events
-    probe_powerbutton_events  "$udev_power_out"
+    probe_powerbutton_events  "$udev_power_out" "$has_non_lnx_power_button"
     probe_sway_power_key
     probe_chromebook
     probe_ambient_light_sensor
@@ -1158,14 +1168,16 @@ EOF
     $CHROMEBOOK_FKEYS && setup_chromebook_fkeys
     $HAS_LID_EVENTS   || install_lid_handler
 
-    if $AMBIENT_LIGHT_SENSOR; then
-        run_setup_step setup_ambient_light_sensor \
-            "=== Phase 3: ambient light sensor ===" \
-            "Enable ambient light sensor (iio-sensor-proxy + clightd)."
-        run_setup_step setup_mac_light_sensors \
-            "Configuring clight brightness floor ..." \
-            "Configure clight brightness floor (prevent invisible screen)."
-    fi
+    # XXX clight disabled pending investigation of screen-blanking on MBA7,1.
+    # When re-enabling: verify dimmer module key names before adding dimmer.conf.
+    # if $AMBIENT_LIGHT_SENSOR; then
+    #     run_setup_step setup_ambient_light_sensor \
+    #         "=== Phase 3: ambient light sensor ===" \
+    #         "Enable ambient light sensor (iio-sensor-proxy + clightd)."
+    #     run_setup_step setup_mac_light_sensors \
+    #         "Configuring clight brightness floor ..." \
+    #         "Configure clight brightness floor (prevent invisible screen)."
+    # fi
 
     if $KBD_BACKLIGHT; then
         local kbd_dev

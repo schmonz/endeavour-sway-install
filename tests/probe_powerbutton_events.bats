@@ -13,9 +13,14 @@ setup() {
     [[ "$HAS_POWERBUTTON_EVENTS" == "true" || "$HAS_POWERBUTTON_EVENTS" == "false" ]]
 }
 
-@test "probe_powerbutton_events: output containing power-switch sets flag to false" {
-    probe_powerbutton_events "$(printf 'E: ID_INPUT_KEY=1\nE: TAGS=:power-switch:seat:\nP: /devices/LNXSYSTM:00')"
+@test "probe_powerbutton_events: power-switch with no non-LNXPWRBN button sets flag to false" {
+    probe_powerbutton_events "$(printf 'E: ID_INPUT_KEY=1\nE: TAGS=:power-switch:seat:\nP: /devices/LNXSYSTM:00')" false
     [[ "$HAS_POWERBUTTON_EVENTS" == "false" ]]
+}
+
+@test "probe_powerbutton_events: non-LNXPWRBN power button leaves flag true even with power-switch" {
+    probe_powerbutton_events "$(printf 'E: ID_INPUT_KEY=1\nE: TAGS=:power-switch:seat:\nP: /devices/LNXSYSTM:00')" true
+    [[ "$HAS_POWERBUTTON_EVENTS" == "true" ]]
 }
 
 @test "probe_powerbutton_events: output without power-switch leaves flag true" {
