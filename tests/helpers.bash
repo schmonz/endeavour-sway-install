@@ -100,7 +100,7 @@ teardown_probe_root() {
 reset_flags() {
     HAS_RESUME=true
     HAS_LID_EVENTS=true
-    POWER_KEY_UDEV_STRIP=false
+    HAS_POWERBUTTON_EVENTS=true
     SWAY_POWER_KEY=false
     CHROMEBOOK_AUDIO=false
     CHROMEBOOK_FKEYS=false

@@ -91,7 +91,7 @@ clone_if_missing() { local url="$1" dir="$2"; [[ -d "$dir" ]] || git clone "$url
 
 HAS_RESUME=true            # system has working suspend/resume
 HAS_LID_EVENTS=true        # kernel input events for lid (e.g. Lid Switch)
-POWER_KEY_UDEV_STRIP=false # strip power-switch udev tag so logind releases grab
+HAS_POWERBUTTON_EVENTS=true  # events reach the UI (not grabbed by logind)
 SWAY_POWER_KEY=false       # add XF86PowerOff bindsym in Sway config
 CHROMEBOOK_AUDIO=false     # run chromebook-linux-audio AVS setup
 CHROMEBOOK_FKEYS=false     # install cros-keyboard-map
@@ -112,7 +112,7 @@ report_capabilities() {
         printf "Hardware capability detection (verify these look right for this machine):\n"
         printf "$fmt" "HAS_RESUME=$HAS_RESUME"                     "system has working suspend/resume"
         printf "$fmt" "HAS_LID_EVENTS=$HAS_LID_EVENTS"             "kernel input events for lid (e.g. Lid Switch)"
-        printf "$fmt" "POWER_KEY_UDEV_STRIP=$POWER_KEY_UDEV_STRIP" "strip power-switch udev tag"
+        printf "$fmt" "HAS_POWERBUTTON_EVENTS=$HAS_POWERBUTTON_EVENTS" "events reach the UI (not grabbed by logind)"
         printf "$fmt" "SWAY_POWER_KEY=$SWAY_POWER_KEY"             "XF86PowerOff bindsym in Sway"
         printf "$fmt" "CHROMEBOOK_FKEYS=$CHROMEBOOK_FKEYS"         "cros-keyboard-map"
         printf "$fmt" "CHROMEBOOK_AUDIO=$CHROMEBOOK_AUDIO"         "chromebook-linux-audio AVS setup"
@@ -155,10 +155,10 @@ probe_lid_events() {
     HAS_LID_EVENTS=false
 }
 
-# POWER_KEY_UDEV_STRIP: LNXPWRBN power button still carries the power-switch udev
-# tag, meaning logind holds an exclusive grab that blocks Sway from seeing the key.
-probe_power_key_udev_strip() { # arg: concatenated udevadm info for LNXPWRBN devices
-    grep -q "power-switch" <<< "${1:-}" && POWER_KEY_UDEV_STRIP=true || true
+# HAS_POWERBUTTON_EVENTS: LNXPWRBN power button events reach the UI, so there's
+# no "exclusive grab" from logind that we need to override with udev.
+probe_powerbutton_events() { # arg: concatenated udevadm info for LNXPWRBN devices
+    grep -q "power-switch" <<< "${1:-}" && HAS_POWERBUTTON_EVENTS=false || true
 }
 
 # SWAY_POWER_KEY: any input device named "Power Button" is present.
@@ -265,7 +265,7 @@ detect_machine_capabilities() {
 
     probe_has_resume            "$bios"
     probe_lid_events
-    probe_power_key_udev_strip  "$udev_power_out"
+    probe_powerbutton_events  "$udev_power_out"
     probe_sway_power_key
     probe_chromebook
     probe_ambient_light_sensor
@@ -844,7 +844,7 @@ setup_logind_config() {
     else
         configure_logind_chromebook
     fi
-    $POWER_KEY_UDEV_STRIP && write_thinkpad_udev_rule
+    $HAS_POWERBUTTON_EVENTS || write_thinkpad_udev_rule
 }
 
 setup_bluetooth() {
@@ -999,7 +999,7 @@ phase2() {
     firewall-cmd --reload
 
     info "=== Phase 2: logind restart ==="
-    $POWER_KEY_UDEV_STRIP && reload_thinkpad_udev
+    $HAS_POWERBUTTON_EVENTS || reload_thinkpad_udev
 
     run_setup_step setup_autologin \
         "=== Phase 2: autologin (re-apply if installer overwrote greetd.conf) ===" \
@@ -1203,7 +1203,7 @@ EOF
     $THINKPAD_GOODIES  && setup_thinkpad_goodies
     $SWAY_POWER_KEY    && add_sway_poweroff_binding "$target_user"
 
-    $POWER_KEY_UDEV_STRIP && \
+    $HAS_POWERBUTTON_EVENTS || \
         info "Note: the udev grab release requires a re-login or reboot to take full effect."
 
     run_setup_step setup_autologin \
