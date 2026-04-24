@@ -871,6 +871,13 @@ remove_firstboot_service() {
     rm -f "$FIRSTBOOT_SERVICE"
 }
 
+write_phase3_sudoers() {
+    local user="$1"
+    local file="/etc/sudoers.d/99-phase3-nopasswd"
+    printf '%s ALL=(ALL) NOPASSWD: ALL\n' "$user" > "$file"
+    chmod 440 "$file"
+}
+
 # ── Phase 1: installer chroot ─────────────────────────────────────────────────
 
 phase1() {
@@ -1025,6 +1032,10 @@ phase2() {
         rm -f "$WARNINGS_FILE"
     fi
     install_phase3_runner "$target_home" "$target_user"
+
+    run_setup_step write_phase3_sudoers \
+        "=== Phase 2: phase 3 passwordless sudo ===" \
+        "Grant temporary NOPASSWD sudo for phase 3." "$target_user"
 
     info ""
     info "Phase 2 complete. Phase 3 will start automatically on first TTY login."
@@ -1223,6 +1234,10 @@ EOF
     run_setup_step setup_autologin \
         "=== Phase 3: reconfigure autologin to Sway ===" \
         "Switch greetd autologin from TTY to Sway." "$target_user"
+
+    info "=== Phase 3: revoking temporary passwordless sudo ==="
+    _sudo rm -f /etc/sudoers.d/99-phase3-nopasswd
+    etckeeper_commit "Remove temporary phase-3 NOPASSWD sudo."
 
     info ""
     info "Phase 3 complete."
