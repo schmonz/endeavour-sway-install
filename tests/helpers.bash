@@ -99,7 +99,7 @@ teardown_probe_root() {
 
 reset_flags() {
     HAS_RESUME=true
-    ACPI_LID_POLL=false
+    HAS_LID_EVENTS=true
     POWER_KEY_UDEV_STRIP=false
     SWAY_POWER_KEY=false
     CHROMEBOOK_AUDIO=false

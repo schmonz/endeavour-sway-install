@@ -78,7 +78,7 @@ fi
 echo "  OK  udevadm-power-buttons.txt"
 
 # ── sysfs ─────────────────────────────────────────────────────────────────────
-# input device names: "inputN<TAB>name" per line (for probe_acpi_lid_poll,
+# input device names: "inputN<TAB>name" per line (for probe_lid_events,
 # probe_sway_power_key)
 {
     for f in /sys/class/input/input*/name; do

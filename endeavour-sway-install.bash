@@ -90,7 +90,7 @@ clone_if_missing() { local url="$1" dir="$2"; [[ -d "$dir" ]] || git clone "$url
 # detect_machine_capabilities() adjusts these.
 
 HAS_RESUME=true            # system has working suspend/resume
-ACPI_LID_POLL=false        # poll /proc/acpi for lid; EC never fires events
+HAS_LID_EVENTS=true        # kernel input events for lid (e.g. Lid Switch)
 POWER_KEY_UDEV_STRIP=false # strip power-switch udev tag so logind releases grab
 SWAY_POWER_KEY=false       # add XF86PowerOff bindsym in Sway config
 CHROMEBOOK_AUDIO=false     # run chromebook-linux-audio AVS setup
@@ -111,7 +111,7 @@ report_capabilities() {
     text=$(
         printf "Hardware capability detection (verify these look right for this machine):\n"
         printf "$fmt" "HAS_RESUME=$HAS_RESUME"                     "system has working suspend/resume"
-        printf "$fmt" "ACPI_LID_POLL=$ACPI_LID_POLL"               "poll /proc/acpi for lid (EC silent)"
+        printf "$fmt" "HAS_LID_EVENTS=$HAS_LID_EVENTS"             "kernel input events for lid (e.g. Lid Switch)"
         printf "$fmt" "POWER_KEY_UDEV_STRIP=$POWER_KEY_UDEV_STRIP" "strip power-switch udev tag"
         printf "$fmt" "SWAY_POWER_KEY=$SWAY_POWER_KEY"             "XF86PowerOff bindsym in Sway"
         printf "$fmt" "CHROMEBOOK_FKEYS=$CHROMEBOOK_FKEYS"         "cros-keyboard-map"
@@ -145,14 +145,14 @@ probe_has_resume() {          # arg: bios-version string
     [[ "${1:-}" == MrChromebox* ]] && HAS_RESUME=false || true
 }
 
-# ACPI_LID_POLL: lid ACPI node exists but kernel input events are unreliable.
-# Chrome EC handles lid events in firmware; "Lid Switch" input node exists but never fires.
-probe_acpi_lid_poll() {
+# HAS_LID_EVENTS: kernel input events for lid are reliable.
+# Chromebook firmware handles lid events via EC; "Lid Switch" node exists but never fires.
+probe_lid_events() {
     [[ -f "${PROBE_ROOT}/proc/acpi/button/lid/LID0/state" ]] || return 0
-    [[ -e "${PROBE_ROOT}/dev/cros_ec" ]] && { ACPI_LID_POLL=true; return; }
+    [[ -e "${PROBE_ROOT}/dev/cros_ec" ]] && { HAS_LID_EVENTS=false; return; }
     grep -rql "Lid Switch" "${PROBE_ROOT}/sys/class/input/input"*/name 2>/dev/null \
         && return 0
-    ACPI_LID_POLL=true
+    HAS_LID_EVENTS=false
 }
 
 # POWER_KEY_UDEV_STRIP: LNXPWRBN power button still carries the power-switch udev
@@ -264,7 +264,7 @@ detect_machine_capabilities() {
     done
 
     probe_has_resume            "$bios"
-    probe_acpi_lid_poll
+    probe_lid_events
     probe_power_key_udev_strip  "$udev_power_out"
     probe_sway_power_key
     probe_chromebook
@@ -436,11 +436,11 @@ add_sway_poweroff_binding() {
 # Sway reload spawns a duplicate. setup_swayidle replaces them with a single
 # exec_always that kills any prior instance before starting.
 #
-# With lid polling ($1=true): suspend is disabled, so no before-sleep/after-resume.
-# Without lid polling ($1=false): also lock before sleep and restore dpms on resume.
+# With lid events ($1=true): also lock before sleep and restore dpms on resume.
+# Without lid events ($1=false): suspend is disabled, so no before-sleep/after-resume.
 
 build_swayidle_line() {
-    local needs_lid_poll="$1"
+    local has_lid_events="$1"
     local common_idle='exec swayidle -w \
     idlehint 1 \
     timeout 300  '"'"'gtklock -d --lock-command "swaymsg output \* dpms off"'"'"' resume '"'"'swaymsg "output * dpms on"'"'"' \
@@ -450,15 +450,15 @@ build_swayidle_line() {
     local sleep_events='    before-sleep '"'"'gtklock -d; sleep 1'"'"' \
     after-resume '"'"'swaymsg "output * dpms on"'"'"''
 
-    if $needs_lid_poll; then
-        printf '%s\n' "$common_idle"
-    else
+    if $has_lid_events; then
         printf '%s' "${common_idle}"$' \\\n'"${sleep_events}"$'\n'
+    else
+        printf '%s\n' "$common_idle"
     fi
 }
 
 setup_swayidle() {
-    local needs_lid_poll="$1"
+    local has_lid_events="$1"
     local autostart="$HOME/.config/sway/config.d/autostart_applications"
     if [[ ! -f "$autostart" ]]; then
         warn "${autostart} not found — skipping swayidle config."
@@ -468,7 +468,7 @@ setup_swayidle() {
     sed -i '/^exec swayidle idlehint/d; /^exec_always swayidle -w before-sleep/d' "$autostart"
 
     local idle_line
-    idle_line=$(build_swayidle_line "$needs_lid_poll")
+    idle_line=$(build_swayidle_line "$has_lid_events")
 
     if grep -q 'swayidle' "$autostart"; then
         warn "swayidle line already present in ${autostart} — review manually."
@@ -1149,13 +1149,13 @@ EOF
     # https://forum.rclone.org/t/icloud-connect-not-working-http-error-400/52019/44
 
     info "=== Phase 3: swayidle ==="
-    setup_swayidle $ACPI_LID_POLL
+    setup_swayidle $HAS_LID_EVENTS
 
     info "=== Phase 3: machine-specific ==="
 
     $CHROMEBOOK_AUDIO && setup_chromebook_audio
     $CHROMEBOOK_FKEYS && setup_chromebook_fkeys
-    $ACPI_LID_POLL    && install_lid_handler
+    $HAS_LID_EVENTS   || install_lid_handler
 
     if $AMBIENT_LIGHT_SENSOR; then
         run_setup_step setup_ambient_light_sensor \
