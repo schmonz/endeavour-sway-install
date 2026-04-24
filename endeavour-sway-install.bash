@@ -750,7 +750,7 @@ case "\${1:-}" in
     echo
     if [[ \$rc -eq 0 ]]; then
         rm -f "\${warnings}"
-        printf 'Manual steps remaining:\n\n  tailscale up\n  tailscale set --accept-dns=true\n  tailscale set --accept-routes\n  rclone config (optional)\n' > "\${notes}"
+        printf 'Manual steps remaining:\n\n  tailscale up\n  rclone config (optional)\n' > "\${notes}"
         grep -qF '${runner} --show-notes' "\${sway_autostart}" 2>/dev/null || \\
             printf '\nexec ${runner} --show-notes\n' >> "\${sway_autostart}"
         sed -i "\\|${runner}|d" "\${HOME}/.bash_profile" 2>/dev/null || true
@@ -1102,8 +1102,8 @@ EOF
     info "=== Phase 3: networking ==="
     sudo tailscale set --operator="$target_user"
     configure_sway_autostart 'tailscale systray' true
-    # accept-dns and accept-routes require an authenticated tailscale session;
-    # they are added to the post-reboot notes so the user runs them after tailscale up.
+    tailscale set --accept-dns=true
+    tailscale set --accept-routes
     # XXX maybe exit node also isn't working? admin console says:
     # XXX   "This machine is misconfigured and cannot relay traffic."
     # XXX but maybe that's enough for Plex (or Jellyfin)
@@ -1208,7 +1208,7 @@ EOF
 
     info ""
     info "Phase 3 complete."
-    info "  Remaining interactive steps after reboot: tailscale up; tailscale set --accept-dns=true; tailscale set --accept-routes; rclone config (optional)."
+    info "  Remaining interactive steps after reboot: tailscale up; rclone config (optional)."
     # XXX lid close: mute, lock, suspend
     # XXX cursor to lower right: lock and sleep display
     # XXX cursor to upper right: lock

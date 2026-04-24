@@ -1,5 +1,6 @@
 # TODO
 
+- when Helium doesn't need `seahorse`, [1Password will](https://bookstack.bluecrow.net/books/linux/page/arch-linux-gnome-keyring-and-1password)
 - clamp `clight` values so as not to have a blank screen in the dark
 - detect iSight camera and install `isight-firmware` (AUR)
 
