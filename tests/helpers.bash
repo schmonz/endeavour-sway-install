@@ -65,12 +65,6 @@ make_probe_root() {
         done < "$base/sys-class-chromeos.txt"
     fi
 
-    if [[ -f "$base/sys-class-video4linux.txt" ]]; then
-        while IFS= read -r entry; do
-            mkdir -p "$r/sys/class/video4linux/$entry"
-        done < "$base/sys-class-video4linux.txt"
-    fi
-
     if grep -q "^/dev/cros_ec" "$base/dev-cros_ec.txt" 2>/dev/null; then
         mkdir -p "$r/dev"
         touch "$r/dev/cros_ec"
@@ -119,5 +113,4 @@ reset_flags() {
     HAS_IR_RECEIVER=false
     THINKPAD_GOODIES=false
     NEEDS_SOFTWARE_GL=false
-    HAS_WEBCAM=false
 }

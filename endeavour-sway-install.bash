@@ -144,7 +144,6 @@ NEEDS_ZSWAP=false          # enable zswap in GRUB_CMDLINE_LINUX_DEFAULT
 HAS_IR_RECEIVER=false      # set up LIRC infrared receiver
 THINKPAD_GOODIES=false     # ThinkPad-specific: smart card, buttons, fingerprint
 NEEDS_SOFTWARE_GL=false    # set LIBGL_ALWAYS_SOFTWARE=1 (GPU can't handle modern GL)
-HAS_WEBCAM=false           # install guvcview (TODO: detect actual webcam presence)
 
 report_capabilities() {
     local fmt='  %-34s %s\n'
@@ -166,7 +165,6 @@ report_capabilities() {
         printf "$fmt" "HAS_IR_RECEIVER=$HAS_IR_RECEIVER"           "LIRC infrared"
         printf "$fmt" "THINKPAD_GOODIES=$THINKPAD_GOODIES"         "ThinkPad smart card/buttons/fingerprint"
         printf "$fmt" "NEEDS_SOFTWARE_GL=$NEEDS_SOFTWARE_GL"       "LIBGL_ALWAYS_SOFTWARE=1"
-        printf "$fmt" "HAS_WEBCAM=$HAS_WEBCAM"                     "guvcview"
         printf "If any flag looks wrong, improve its probe in detect_machine_capabilities().\n"
     )
     info "$text"
@@ -280,17 +278,6 @@ probe_needs_software_gl() {   # arg: lspci -n output
     grep -qE "1002:(5b6|7145)" <<< "${1:-}" && NEEDS_SOFTWARE_GL=true || true
 }
 
-# HAS_WEBCAM: V4L2 device present, or FaceTime HD PCIe camera detected.
-# Note: driver-backed /dev/video* may not exist until after first reboot
-# (e.g. facetimehd-dkms just installed); lspci covers that gap.
-probe_has_webcam() {          # arg: lspci -n output
-    if ls "${PROBE_ROOT}"/dev/video* 2>/dev/null | grep -q . \
-       || ls "${PROBE_ROOT}/sys/class/video4linux/" 2>/dev/null | grep -q . \
-       || grep -q "14e4:1570" <<< "${1:-}"; then
-        HAS_WEBCAM=true
-    fi
-}
-
 # ── Capability orchestrator ───────────────────────────────────────────────────
 
 detect_machine_capabilities() {
@@ -330,7 +317,6 @@ detect_machine_capabilities() {
     probe_ir_receiver
     probe_thinkpad_goodies      "$vendor" "$product" "$version"
     probe_needs_software_gl     "$lspci_out"
-    probe_has_webcam            "$lspci_out"
 
     report_capabilities
 }
@@ -677,15 +663,6 @@ EOF
     # in /etc/clight/modules.conf.d/dimmer.conf
 }
 
-setup_webcam() {
-    info "Setting up webcam ..."
-    # FaceTime webcam (e.g. MacBookAir7,1): facetimehd-dkms installed via yay above;
-    # udev auto-loads the module on next boot via modalias.
-    # iSight webcam — not sure who needs this:
-    # yay -S --noconfirm isight-firmware
-    pacman_install guvcview
-}
-
 # Idempotently add PARAMS to grub variable VAR, guarded by CHECK already present.
 # Handles empty and non-empty values, single- or double-quoted.
 transform_grub_param() {
@@ -957,7 +934,7 @@ phase1() {
         gvfs-dnssd tailscale \
         seahorse \
         fwupd \
-        discord signal-desktop \
+        discord signal-desktop guvcview \
         libreoffice-fresh abiword cups cups-browsed system-config-printer \
         xdg-desktop-portal xdg-desktop-portal-wlr \
         eos-update-notifier \
@@ -1256,7 +1233,6 @@ EOF
         "Installing mbpfan ..." \
         "Enable mbpfan Mac fan control."
     $HAS_FACETIMEHD && aur_install facetimehd-dkms
-    $HAS_WEBCAM     && setup_webcam
     $PHANTOM_LVDS2  && run_setup_step setup_nvidia_display \
         "Disabling phantom second internal display (LVDS-2) ..." \
         "Disable second internal display (MacBookPro5,2 LVDS-2)."

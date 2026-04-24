@@ -108,9 +108,6 @@ find /sys/bus/iio/devices -name 'in_illuminance*' 2>/dev/null \
 # Chromeos entries: one per line (for probe_chromebook)
 ls /sys/class/chromeos/ 2>/dev/null | save_if_nonempty sys-class-chromeos.txt
 
-# V4L device names: one per line (for probe_has_webcam)
-ls /sys/class/video4linux/ 2>/dev/null | save_if_nonempty sys-class-video4linux.txt
-
 # ── device nodes ─────────────────────────────────────────────────────────────
 run dev-lirc.txt    bash -c 'ls /dev/lirc* 2>&1 || true'
 run dev-video.txt   bash -c 'ls /dev/video* 2>&1 || true'
