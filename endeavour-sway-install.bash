@@ -1100,7 +1100,7 @@ EOF
     configure_sway_autostart '1password'
 
     info "=== Phase 3: networking ==="
-    sudo tailscale set --operator="$USER"
+    sudo tailscale set --operator="$target_user"
     configure_sway_autostart 'tailscale systray' true
     # accept-dns and accept-routes require an authenticated tailscale session;
     # they are added to the post-reboot notes so the user runs them after tailscale up.
