@@ -8,7 +8,7 @@
 #     bash endeavour-sway-install.bash <username> --phase 1
 #   Phase 2 — first-boot systemd service (root, systemd running):
 #     Invoked automatically by endeavour-sway-firstboot.service.
-#   Phase 3 — first Sway session (normal user):
+#   Phase 3 — first TTY login (normal user, no Sway session needed):
 #     endeavour-sway-install <username> --phase 3
 #
 # Phase 1 is run by the Calamares post-install hook after the Sway CE script.
@@ -789,25 +789,28 @@ EOF
 # ── Phase 3 auto-runner (set up in phase 2, fires on first Sway login) ────────
 
 install_phase3_runner() {
-    local target_home="$1"
+    local target_home="$1" target_user="$2"
     local runner="${target_home}/.local/bin/endeavour-run-phase3"
+    local sway_autostart="${target_home}/.config/sway/config.d/autostart_applications"
     mkdir -p "$(dirname "$runner")"
 
     # INSTALL_SCRIPT_DEST expands now; \${...} expands when the runner executes.
     cat > "$runner" << SCRIPT
 #!/bin/bash
-autostart="\${HOME}/.config/sway/config.d/autostart_applications"
 notes="\${HOME}/.config/endeavour-post-phase3.txt"
+sway_autostart="\${HOME}/.config/sway/config.d/autostart_applications"
 
 case "\${1:-}" in
   --show-notes)
+    # Runs in first Sway session after the reboot that follows Phase 3.
     [[ -f "\${notes}" ]] || exit 0
     xdg-open 'https://chromewebstore.google.com/detail/1password-%E2%80%93-password-mana/aeblfdkhhhdcdjpifhhbdiojplfjncoa' &
     foot -e sh -c "cat '\${notes}'; echo; read -r -p 'Press Enter to dismiss.' _"
     rm -f "\${notes}"
-    sed -i "\\|exec ${runner} --show-notes|d" "\${autostart}" 2>/dev/null || true
+    sed -i "\\|exec ${runner} --show-notes|d" "\${sway_autostart}" 2>/dev/null || true
     ;;
-  --inner)
+  *)
+    # Runs in TTY login shell (bash --login autologin via greetd).
     log="\${HOME}/.config/endeavour-phase3.log"
     warnings="\${HOME}/.config/endeavour-warnings"
     if [[ -f "\${warnings}" ]]; then
@@ -821,29 +824,24 @@ case "\${1:-}" in
     if [[ \$rc -eq 0 ]]; then
         rm -f "\${warnings}"
         printf 'Manual steps remaining:\n\n  tailscale up\n  rclone config (optional)\n' > "\${notes}"
-        grep -qF '${runner} --show-notes' "\${autostart}" 2>/dev/null || \\
-            printf '\nexec ${runner} --show-notes\n' >> "\${autostart}"
-        sed -i "\\|exec ${runner}$|d" "\${autostart}" 2>/dev/null || true
+        grep -qF '${runner} --show-notes' "\${sway_autostart}" 2>/dev/null || \\
+            printf '\nexec ${runner} --show-notes\n' >> "\${sway_autostart}"
+        sed -i "\\|${runner}|d" "\${HOME}/.bash_profile" 2>/dev/null || true
         systemctl reboot
     else
         echo "Phase 3 FAILED (exit code \$rc). Log: \${log}"
         read -r -p 'Press Enter to dismiss.' _
     fi
     ;;
-  *)
-    foot -e "\$0" --inner
-    ;;
 esac
 SCRIPT
     chmod +x "$runner"
 
-    local autostart="${target_home}/.config/sway/config.d/autostart_applications"
-    if [[ -f "$autostart" ]]; then
-        configure_sway_autostart "${runner}" false "${autostart}"
-    else
-        warn "${autostart} not found — phase 3 autostart skipped."
-        warn "Run ${runner} manually on first login."
-    fi
+    # Register in .bash_profile so it runs on TTY login (not in the Sway autostart).
+    local bash_profile="${target_home}/.bash_profile"
+    touch "$bash_profile"
+    chown "${target_user}:" "$bash_profile"
+    append_once "$bash_profile" "$runner"
 }
 
 # Show MSG, run FUNC (with any extra args), then commit to etckeeper.
@@ -858,18 +856,20 @@ run_setup_step() {
 # ── Setup steps (called via run_setup_step) ───────────────────────────────────
 
 setup_autologin() {
-    local user="$1"
+    local user="$1" session_cmd="${2:-sway}"
+    local conf=/etc/greetd/greetd.conf
     # https://github.com/EndeavourOS-Community-Editions/sway/issues/105
-    if grep -q 'initial_session' /etc/greetd/greetd.conf; then
-        info "Autologin already configured."
-        return
+    if grep -q 'initial_session' "$conf" 2>/dev/null; then
+        if grep -qF "\"${session_cmd}\"" "$conf" 2>/dev/null; then
+            info "Autologin already configured (${session_cmd})."
+            return
+        fi
+        # Replace existing block (always the last section) with the new command.
+        _sudo sed -i '/^\[initial_session\]/,$ d' "$conf"
     fi
-    tee -a /etc/greetd/greetd.conf > /dev/null << EOF
-
-[initial_session]
-command = "sway"
-user = "${user}"
-EOF
+    printf '\n[initial_session]\ncommand = "%s"\nuser = "%s"\n' \
+        "$session_cmd" "$user" \
+        | _sudo tee -a "$conf" > /dev/null
 }
 
 setup_keyboard_layout() {
@@ -972,7 +972,7 @@ phase1() {
 
     run_setup_step setup_autologin \
         "=== Phase 1: autologin ===" \
-        "Enable autologin." "$target_user"
+        "Enable autologin (TTY, for phase 3)." "$target_user" "bash --login"
 
     run_setup_step setup_keyboard_layout \
         "=== Phase 1: macOS keyboard layout ===" \
@@ -1073,7 +1073,7 @@ phase2() {
 
     run_setup_step setup_autologin \
         "=== Phase 2: autologin (re-apply if installer overwrote greetd.conf) ===" \
-        "Enable autologin." "$target_user"
+        "Enable autologin (TTY, for phase 3)." "$target_user" "bash --login"
 
     run_setup_step remove_firstboot_service \
         "=== Phase 2: remove firstboot service ===" \
@@ -1084,10 +1084,10 @@ phase2() {
         install -D -o "$target_user" "$WARNINGS_FILE" "${target_home}/.config/endeavour-warnings"
         rm -f "$WARNINGS_FILE"
     fi
-    install_phase3_runner "$target_home"
+    install_phase3_runner "$target_home" "$target_user"
 
     info ""
-    info "Phase 2 complete. Log in to Sway — phase 3 will start automatically."
+    info "Phase 2 complete. Phase 3 will start automatically on first TTY login."
 }
 
 # ── Phase 3: first Sway session ───────────────────────────────────────────────
@@ -1276,6 +1276,10 @@ EOF
 
     $POWER_KEY_UDEV_STRIP && \
         info "Note: the udev grab release requires a re-login or reboot to take full effect."
+
+    run_setup_step setup_autologin \
+        "=== Phase 3: reconfigure autologin to Sway ===" \
+        "Switch greetd autologin from TTY to Sway." "$target_user"
 
     info ""
     info "Phase 3 complete."
