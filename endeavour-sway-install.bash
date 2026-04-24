@@ -300,11 +300,8 @@ detect_target_user() {
 
 etckeeper_commit() {
     local msg="$1"
-    if command -v etckeeper &>/dev/null; then
-        info "etckeeper commit: ${msg}"
-        _sudo etckeeper commit -m "$msg" 2>/dev/null \
-            || warn "etckeeper commit failed (non-fatal)."
-    fi
+    info "etckeeper commit: ${msg}"
+    _sudo etckeeper commit -m "$msg"
 }
 
 # ── Logind drop-ins ───────────────────────────────────────────────────────────
@@ -911,6 +908,9 @@ phase1() {
         grub-btrfs
 
     info "=== Phase 1: etckeeper init ==="
+    local root_id="root@$(cat /etc/hostname 2>/dev/null || hostname)"
+    git config --global user.email "$root_id"
+    git config --global user.name "$root_id"
     if ! etckeeper vcs log --oneline -1 &>/dev/null; then
         etckeeper init
     fi
