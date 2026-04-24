@@ -831,13 +831,12 @@ setup_eos_update_notifier_conf() {
 }
 
 setup_firewall_zone() {
-    firewall-cmd --set-default-zone=home --permanent \
-        || warn "firewall-cmd --set-default-zone failed (will retry in phase 2)."
+    firewall-cmd --set-default-zone=home
 }
 
 setup_firewall_localsend() {
-    firewall-cmd --add-port=53317/tcp --permanent || true
-    firewall-cmd --add-port=53317/udp --permanent || true
+    firewall-cmd --add-port=53317/tcp --permanent
+    firewall-cmd --add-port=53317/udp --permanent
 }
 
 setup_systemd_resolved() {
@@ -913,6 +912,7 @@ phase1() {
     git config --global user.name "$root_id"
     if ! etckeeper vcs log --oneline -1 &>/dev/null; then
         etckeeper init
+        git -C /etc branch -m "$(hostname)"
     fi
 
     run_setup_step setup_autologin \
@@ -936,14 +936,6 @@ phase1() {
     run_setup_step setup_eos_update_notifier_conf \
         "=== Phase 1: eos-update-notifier ===" \
         "Configure eos-update-notifier to use system tray."
-
-    run_setup_step setup_firewall_zone \
-        "=== Phase 1: firewall zone ===" \
-        "Set default firewall zone to 'home'."
-
-    run_setup_step setup_firewall_localsend \
-        "=== Phase 1: firewall LocalSend ===" \
-        "Allow LocalSend through firewall."
 
     run_setup_step setup_systemd_resolved \
         "=== Phase 1: systemd-resolved ===" \
@@ -993,12 +985,6 @@ phase2() {
     etckeeper commit -m 'Track /etc after phase-1 install.' 2>/dev/null || true
     git -C /etc gc --prune 2>/dev/null || warn "git gc failed (non-fatal)."
 
-    local current_branch
-    current_branch=$(git -C /etc symbolic-ref --short HEAD 2>/dev/null || true)
-    if [[ -n "$current_branch" && "$current_branch" != "$(hostname)" ]]; then
-        git -C /etc branch -m "$(hostname)"
-    fi
-
     run_setup_step setup_bluetooth \
         "=== Phase 2: Bluetooth ===" \
         "Enable Bluetooth."
@@ -1011,8 +997,15 @@ phase2() {
         "=== Phase 2: pacman cache ===" \
         "Periodically clean pacman cache."
 
-    info "=== Phase 2: firewall (daemon now running) ==="
-    firewall-cmd --set-default-zone=home
+    run_setup_step setup_firewall_zone \
+        "=== Phase 2: firewall zone ===" \
+        "Set default firewall zone to 'home'."
+
+    run_setup_step setup_firewall_localsend \
+        "=== Phase 2: firewall LocalSend ===" \
+        "Allow LocalSend through firewall."
+
+    info "=== Phase 2: firewall reload ==="
     firewall-cmd --reload
 
     info "=== Phase 2: logind restart ==="
