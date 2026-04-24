@@ -962,7 +962,7 @@ phase1() {
         xdg-desktop-portal xdg-desktop-portal-wlr \
         eos-update-notifier \
         btop fastfetch tmux the_silver_searcher xorg-xhost \
-        apostrophe glow tig github-cli socat \
+        apostrophe glow tig github-cli socat bats \
         grub-btrfs
 
     info "=== Phase 1: etckeeper init ==="
