@@ -87,10 +87,9 @@ clone_if_missing() { local url="$1" dir="$2"; [[ -d "$dir" ]] || git clone "$url
 
 # ── Machine capability flags ──────────────────────────────────────────────────
 #
-# All default false. detect_machine_capabilities() sets whichever apply.
-# Phase logic keys on these flags, never on a machine-name string.
+# detect_machine_capabilities() adjusts these.
 
-DISABLE_SLEEP=false        # mask all suspend/sleep targets
+HAS_RESUME=true            # system has working suspend/resume
 ACPI_LID_POLL=false        # poll /proc/acpi for lid; EC never fires events
 POWER_KEY_UDEV_STRIP=false # strip power-switch udev tag so logind releases grab
 SWAY_POWER_KEY=false       # add XF86PowerOff bindsym in Sway config
@@ -111,7 +110,7 @@ report_capabilities() {
     local text
     text=$(
         printf "Hardware capability detection (verify these look right for this machine):\n"
-        printf "$fmt" "DISABLE_SLEEP=$DISABLE_SLEEP"               "mask all sleep/suspend targets"
+        printf "$fmt" "HAS_RESUME=$HAS_RESUME"                     "system has working suspend/resume"
         printf "$fmt" "ACPI_LID_POLL=$ACPI_LID_POLL"               "poll /proc/acpi for lid (EC silent)"
         printf "$fmt" "POWER_KEY_UDEV_STRIP=$POWER_KEY_UDEV_STRIP" "strip power-switch udev tag"
         printf "$fmt" "SWAY_POWER_KEY=$SWAY_POWER_KEY"             "XF86PowerOff bindsym in Sway"
@@ -141,9 +140,9 @@ report_capabilities() {
 
 PROBE_ROOT="${PROBE_ROOT:-}"
 
-# DISABLE_SLEEP: MrChromebox firmware = Chromebook with broken suspend/resume.
-probe_disable_sleep() {       # arg: bios-version string
-    [[ "${1:-}" == MrChromebox* ]] && DISABLE_SLEEP=true || true
+# HAS_RESUME: MrChromebox firmware = Chromebook with broken suspend/resume.
+probe_has_resume() {          # arg: bios-version string
+    [[ "${1:-}" == MrChromebox* ]] && HAS_RESUME=false || true
 }
 
 # ACPI_LID_POLL: lid ACPI node exists but kernel input events are unreliable.
@@ -264,7 +263,7 @@ detect_machine_capabilities() {
         fi
     done
 
-    probe_disable_sleep         "$bios"
+    probe_has_resume            "$bios"
     probe_acpi_lid_poll
     probe_power_key_udev_strip  "$udev_power_out"
     probe_sway_power_key
@@ -839,10 +838,10 @@ setup_systemd_resolved() {
 }
 
 setup_logind_config() {
-    if $DISABLE_SLEEP; then
-        configure_logind_chromebook
-    else
+    if $HAS_RESUME; then
         configure_logind_common
+    else
+        configure_logind_chromebook
     fi
     $POWER_KEY_UDEV_STRIP && write_thinkpad_udev_rule
 }

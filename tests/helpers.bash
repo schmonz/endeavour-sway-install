@@ -98,7 +98,7 @@ teardown_probe_root() {
 }
 
 reset_flags() {
-    DISABLE_SLEEP=false
+    HAS_RESUME=true
     ACPI_LID_POLL=false
     POWER_KEY_UDEV_STRIP=false
     SWAY_POWER_KEY=false
