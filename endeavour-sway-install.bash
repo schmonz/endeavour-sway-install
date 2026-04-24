@@ -349,17 +349,6 @@ AllowSuspend=no
 EOF
 }
 
-restart_logind() {
-    info "Restarting systemd-logind ..."
-    system_systemctl restart systemd-logind
-    # greetd depends on logind; restart it so the login prompt comes back up.
-    if system_systemctl is-active --quiet greetd 2>/dev/null \
-       || system_systemctl is-failed --quiet greetd 2>/dev/null; then
-        info "Restarting greetd ..."
-        system_systemctl restart greetd
-    fi
-}
-
 # ── ThinkPad: udev rule ───────────────────────────────────────────────────────
 
 write_thinkpad_udev_rule() {
@@ -1007,7 +996,6 @@ phase2() {
 
     info "=== Phase 2: logind restart ==="
     $POWER_KEY_UDEV_STRIP && reload_thinkpad_udev
-    restart_logind
 
     run_setup_step setup_autologin \
         "=== Phase 2: autologin (re-apply if installer overwrote greetd.conf) ===" \
