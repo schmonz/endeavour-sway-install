@@ -38,3 +38,26 @@ setup() {
         | transform_grub_param GRUB_CMDLINE_LINUX_DEFAULT zswap "zswap.enabled=1 zswap.compressor=lz4")
     [[ "$result" == 'GRUB_CMDLINE_LINUX_DEFAULT="quiet zswap.enabled=1 zswap.compressor=lz4"' ]]
 }
+
+@test "transform_grub_param: handles single quotes" {
+    result=$(echo "GRUB_CMDLINE_LINUX=''" | transform_grub_param GRUB_CMDLINE_LINUX video=LVDS-2:d video=LVDS-2:d)
+    [[ "$result" == "GRUB_CMDLINE_LINUX='video=LVDS-2:d'" ]]
+
+    result=$(echo "GRUB_CMDLINE_LINUX='quiet'" | transform_grub_param GRUB_CMDLINE_LINUX video=LVDS-2:d video=LVDS-2:d)
+    [[ "$result" == "GRUB_CMDLINE_LINUX='quiet video=LVDS-2:d'" ]]
+}
+
+@test "transform_grub_param: handles no quotes" {
+    result=$(echo "GRUB_CMDLINE_LINUX=" | transform_grub_param GRUB_CMDLINE_LINUX video=LVDS-2:d video=LVDS-2:d)
+    [[ "$result" == "GRUB_CMDLINE_LINUX=" ]]
+}
+
+@test "transform_grub_param: handles non-quoted values" {
+    result=$(echo "GRUB_CMDLINE_LINUX=quiet" | transform_grub_param GRUB_CMDLINE_LINUX video=LVDS-2:d video=LVDS-2:d)
+    [[ "$result" == "GRUB_CMDLINE_LINUX=quiet" ]]
+}
+
+@test "transform_grub_param: handles trailing whitespace" {
+    result=$(echo 'GRUB_CMDLINE_LINUX="quiet "' | transform_grub_param GRUB_CMDLINE_LINUX video=LVDS-2:d video=LVDS-2:d)
+    [[ "$result" == 'GRUB_CMDLINE_LINUX="quiet  video=LVDS-2:d"' ]]
+}

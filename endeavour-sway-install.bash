@@ -616,14 +616,15 @@ EOF
 # Handles empty and non-empty values, single- or double-quoted.
 transform_grub_param() {
     local var="$1" check="$2" params="$3"
-    sed -E "
-/^${var}=/{
-    /${check}/! {
-        s/=([\"'])\1\$/=\1${params}\1/
-        t
-        s/=([\"'])(.*)\1\$/=\1\2 ${params}\1/
-    }
-}"
+    # Portably handle empty and non-empty quoted values using BRE.
+    # BSD sed -E does not support backreferences in the search pattern.
+    sed -e "/^${var}=/ {" \
+        -e "/${check}/! {" \
+        -e "s/^\(${var}=\([\"']\)\)\2$/\1${params}\2/" \
+        -e "t" \
+        -e "s/^\(${var}=\([\"']\).*\)\2$/\1 ${params}\2/" \
+        -e "}" \
+        -e "}"
 }
 
 add_grub_param() {
