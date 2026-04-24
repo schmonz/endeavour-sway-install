@@ -823,7 +823,7 @@ case "\${1:-}" in
     echo
     if [[ \$rc -eq 0 ]]; then
         rm -f "\${warnings}"
-        printf 'Manual steps remaining:\n\n  tailscale up\n  rclone config (optional)\n' > "\${notes}"
+        printf 'Manual steps remaining:\n\n  tailscale up\n  tailscale set --accept-dns=true\n  tailscale set --accept-routes\n  rclone config (optional)\n' > "\${notes}"
         grep -qF '${runner} --show-notes' "\${sway_autostart}" 2>/dev/null || \\
             printf '\nexec ${runner} --show-notes\n' >> "\${sway_autostart}"
         sed -i "\\|${runner}|d" "\${HOME}/.bash_profile" 2>/dev/null || true
@@ -1039,7 +1039,7 @@ phase2() {
     fi
     su - "$target_user" -c \
         "ln -sf ~/trees/dotfiles/gitconfig ~/.gitconfig && ln -sf ~/trees/dotfiles/tmux.conf ~/.tmux.conf"
-    ln -sf "${target_home}/trees/dotfiles/gitconfig" /root/.gitconfig || true
+    ln -sf "${target_home}/trees/dotfiles/gitconfig" /root/.gitconfig
 
     info "=== Phase 2: etckeeper commit ==="
     etckeeper commit -m 'Track /etc after phase-1 install.' 2>/dev/null || true
@@ -1064,8 +1064,8 @@ phase2() {
         "Periodically clean pacman cache."
 
     info "=== Phase 2: firewall (daemon now running) ==="
-    firewall-cmd --set-default-zone=home || true
-    firewall-cmd --reload || true
+    firewall-cmd --set-default-zone=home
+    firewall-cmd --reload
 
     info "=== Phase 2: logind restart ==="
     $POWER_KEY_UDEV_STRIP && reload_thinkpad_udev
@@ -1174,10 +1174,10 @@ EOF
     configure_sway_autostart '1password'
 
     info "=== Phase 3: networking ==="
-    sudo tailscale set --operator="$USER" || true
+    sudo tailscale set --operator="$USER"
     configure_sway_autostart 'tailscale systray' true
-    tailscale set --accept-dns=true || true
-    tailscale set --accept-routes || true
+    # accept-dns and accept-routes require an authenticated tailscale session;
+    # they are added to the post-reboot notes so the user runs them after tailscale up.
     # XXX maybe exit node also isn't working? admin console says:
     # XXX   "This machine is misconfigured and cannot relay traffic."
     # XXX but maybe that's enough for Plex (or Jellyfin)
@@ -1283,7 +1283,7 @@ EOF
 
     info ""
     info "Phase 3 complete."
-    info "  Remaining interactive steps after reboot: tailscale up, rclone config (optional)."
+    info "  Remaining interactive steps after reboot: tailscale up; tailscale set --accept-dns=true; tailscale set --accept-routes; rclone config (optional)."
     # XXX lid close: mute, lock, suspend
     # XXX cursor to lower right: lock and sleep display
     # XXX cursor to upper right: lock
