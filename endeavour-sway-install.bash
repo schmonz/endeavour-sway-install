@@ -866,10 +866,11 @@ remove_firstboot_service() {
 phase1() {
     [[ $EUID -eq 0 ]] || die "Phase 1 must run as root."
 
-    local target_user
+    local target_user target_home
     target_user=$(detect_target_user)
     [[ -n "$target_user" ]] \
         || die "No user found with uid >= 1000. Has Calamares created the user yet?"
+    target_home=$(getent passwd "$target_user" | cut -d: -f6)
 
     detect_machine_capabilities
 
@@ -938,6 +939,9 @@ phase1() {
     run_setup_step install_firstboot_service \
         "=== Phase 1: first-boot service ===" \
         "Install first-boot service."
+
+    info "=== Phase 1: phase 3 autostart ==="
+    install_phase3_runner "$target_home" "$target_user"
 
     info ""
     info "Phase 1 complete. Reboot — phase 2 will run automatically on first boot."
