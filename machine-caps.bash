@@ -213,4 +213,4 @@ report_machine_caps() {
     printf "$fmt" "HAS_GL_CAPABLE_GPU=$HAS_GL_CAPABLE_GPU"                 "GPU handles modern OpenGL"
 }
 
-[[ "${BASH_SOURCE[0]}" == "$0" ]] && machine_caps_main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then machine_caps_main "$@"; fi
