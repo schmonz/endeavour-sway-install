@@ -298,7 +298,7 @@ etckeeper_commit() {
 # ── Logind drop-ins ───────────────────────────────────────────────────────────
 #
 # All machines: HandlePowerKey=ignore so Sway can handle XF86PowerOff.
-# Chromebook additionally: IdleAction=ignore, HandleLidSwitch=lock,
+# Without suspend/resume: also IdleAction=ignore, HandleLidSwitch=lock,
 #   sleep targets masked, sleep.conf drop-in.
 
 write_logind_dropin() {
@@ -308,17 +308,17 @@ write_logind_dropin() {
     echo "$content" | _sudo tee "$file" > /dev/null
 }
 
-configure_logind_common() {
-    # Power key: logind ignores it on all machines; Sway handles it.
-    write_logind_dropin "/etc/systemd/logind.conf.d/power-key.conf" \
+configure_logind() {
+    local has_resume="$1"
+    if $has_resume; then
+        # Power key: logind ignores it on all machines; Sway handles it.
+        write_logind_dropin "/etc/systemd/logind.conf.d/power-key.conf" \
 "[Login]
 HandlePowerKey=ignore"
-}
-
-configure_logind_chromebook() {
-    # Replaces (or creates) the main chromebook drop-in.
-    # Name: disable-sleep.conf (the name that actually exists on the machine).
-    write_logind_dropin "/etc/systemd/logind.conf.d/disable-sleep.conf" \
+    else
+        # No suspend/resume: disable idle sleep, lock on lid close, suppress all sleep targets.
+        # Name: disable-sleep.conf (the name that actually exists on the machine).
+        write_logind_dropin "/etc/systemd/logind.conf.d/disable-sleep.conf" \
 "[Login]
 IdleAction=ignore
 HandleLidSwitch=lock
@@ -326,24 +326,25 @@ HandleLidSwitchExternalPower=lock
 HandlePowerKey=ignore
 HandlePowerKeyLongPress=ignore"
 
-    info "Masking sleep/suspend/hibernate targets ..."
-    # systemctl mask creates /dev/null symlinks — works in chroot and live system.
-    system_systemctl mask \
-        hibernate.target \
-        hybrid-sleep.target \
-        sleep.target \
-        suspend-then-hibernate.target \
-        suspend.target
+        info "Masking sleep/suspend/hibernate targets ..."
+        # systemctl mask creates /dev/null symlinks — works in chroot and live system.
+        system_systemctl mask \
+            hibernate.target \
+            hybrid-sleep.target \
+            sleep.target \
+            suspend-then-hibernate.target \
+            suspend.target
 
-    info "Writing /etc/systemd/sleep.conf.d/disable-sleep.conf ..."
-    _sudo mkdir -p /etc/systemd/sleep.conf.d
-    _sudo tee /etc/systemd/sleep.conf.d/disable-sleep.conf > /dev/null << 'EOF'
+        info "Writing /etc/systemd/sleep.conf.d/disable-sleep.conf ..."
+        _sudo mkdir -p /etc/systemd/sleep.conf.d
+        _sudo tee /etc/systemd/sleep.conf.d/disable-sleep.conf > /dev/null << 'EOF'
 [Sleep]
 AllowHibernation=no
 AllowHybridSleep=no
 AllowSuspendThenHibernate=no
 AllowSuspend=no
 EOF
+    fi
 }
 
 # ── ThinkPad: udev rule ───────────────────────────────────────────────────────
@@ -901,11 +902,7 @@ setup_systemd_resolved() {
 }
 
 setup_logind_config() {
-    if $HAS_RESUME; then
-        configure_logind_common
-    else
-        configure_logind_chromebook
-    fi
+    configure_logind $HAS_RESUME
     $HAS_POWERBUTTON_EVENTS || write_thinkpad_udev_rule
 }
 
