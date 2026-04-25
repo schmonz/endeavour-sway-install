@@ -95,7 +95,7 @@ HAS_POWERBUTTON_EVENTS=true  # events reach the UI (not grabbed by logind)
 HAS_AVS_AUDIO=false     # run chromebook-linux-audio AVS setup
 HAS_CROS_FKEYS=false     # install cros-keyboard-map
 HAS_AMBIENT_LIGHT_SENSOR=false # install iio-sensor-proxy + clight, enable clightd
-KBD_BACKLIGHT=false        # auto-detect keyboard backlight and add Sway bindings
+HAS_KBD_BACKLIGHT=false        # auto-detect keyboard backlight and add Sway bindings
 NEEDS_MBPFAN=false         # install + enable mbpfan
 HAS_FACETIMEHD=false       # install facetimehd-dkms (FaceTime HD webcam)
 PHANTOM_LVDS2=false        # disable phantom second internal display
@@ -115,7 +115,7 @@ report_capabilities() {
         printf "$fmt" "HAS_CROS_FKEYS=$HAS_CROS_FKEYS"         "cros-keyboard-map"
         printf "$fmt" "HAS_AVS_AUDIO=$HAS_AVS_AUDIO"         "chromebook-linux-audio AVS setup"
         printf "$fmt" "HAS_AMBIENT_LIGHT_SENSOR=$HAS_AMBIENT_LIGHT_SENSOR" "iio-sensor-proxy + clight"
-        printf "$fmt" "KBD_BACKLIGHT=$KBD_BACKLIGHT"               "keyboard backlight auto-setup"
+        printf "$fmt" "HAS_KBD_BACKLIGHT=$HAS_KBD_BACKLIGHT"               "keyboard backlight auto-setup"
         printf "$fmt" "NEEDS_MBPFAN=$NEEDS_MBPFAN"                 "mbpfan Mac fan control"
         printf "$fmt" "HAS_FACETIMEHD=$HAS_FACETIMEHD"             "facetimehd-dkms"
         printf "$fmt" "PHANTOM_LVDS2=$PHANTOM_LVDS2"               "disable phantom LVDS-2 display"
@@ -178,10 +178,10 @@ probe_ambient_light_sensor() {
         | grep -q . && HAS_AMBIENT_LIGHT_SENSOR=true || true
 }
 
-# KBD_BACKLIGHT: keyboard backlight LED device in sysfs.
+# HAS_KBD_BACKLIGHT: keyboard backlight LED device in sysfs.
 probe_kbd_backlight() {
     ls "${PROBE_ROOT}/sys/class/leds/" 2>/dev/null \
-        | grep -qiE "kbd|keyboard" && KBD_BACKLIGHT=true || true
+        | grep -qiE "kbd|keyboard" && HAS_KBD_BACKLIGHT=true || true
 }
 
 # NEEDS_MBPFAN: Apple MacBook — needs mbpfan to control fans via applesmc.
@@ -1174,7 +1174,7 @@ EOF
     #         "Configure clight brightness floor (prevent invisible screen)."
     # fi
 
-    if $KBD_BACKLIGHT; then
+    if $HAS_KBD_BACKLIGHT; then
         local kbd_dev
         kbd_dev=$(brightnessctl --list 2>/dev/null | awk -F"'" '/[Kk]eyboard/{print $2; exit}')
         if [[ -n "$kbd_dev" ]]; then
