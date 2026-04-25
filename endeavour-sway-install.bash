@@ -308,43 +308,39 @@ write_logind_dropin() {
     echo "$content" | _sudo tee "$file" > /dev/null
 }
 
+logind_dropin_content() {    # arg: has_resume
+    if ${1:-true}; then
+        printf '[Login]\nHandlePowerKey=ignore\n'
+    else
+        printf '[Login]\nIdleAction=ignore\nHandleLidSwitch=lock\nHandleLidSwitchExternalPower=lock\nHandlePowerKey=ignore\nHandlePowerKeyLongPress=ignore\n'
+    fi
+}
+
+sleep_conf_content() {
+    printf '[Sleep]\nAllowHibernation=no\nAllowHybridSleep=no\nAllowSuspendThenHibernate=no\nAllowSuspend=no\n'
+}
+
 configure_logind() {
     local has_resume="$1"
-    if $has_resume; then
-        # Power key: logind ignores it on all machines; Sway handles it.
-        write_logind_dropin "/etc/systemd/logind.conf.d/power-key.conf" \
-"[Login]
-HandlePowerKey=ignore"
-    else
-        # No suspend/resume: disable idle sleep, lock on lid close, suppress all sleep targets.
-        # Name: disable-sleep.conf (the name that actually exists on the machine).
-        write_logind_dropin "/etc/systemd/logind.conf.d/disable-sleep.conf" \
-"[Login]
-IdleAction=ignore
-HandleLidSwitch=lock
-HandleLidSwitchExternalPower=lock
-HandlePowerKey=ignore
-HandlePowerKeyLongPress=ignore"
+    local file
+    $has_resume && file="/etc/systemd/logind.conf.d/power-key.conf" \
+               || file="/etc/systemd/logind.conf.d/disable-sleep.conf"
+    write_logind_dropin "$file" "$(logind_dropin_content "$has_resume")"
 
-        info "Masking sleep/suspend/hibernate targets ..."
-        # systemctl mask creates /dev/null symlinks — works in chroot and live system.
-        system_systemctl mask \
-            hibernate.target \
-            hybrid-sleep.target \
-            sleep.target \
-            suspend-then-hibernate.target \
-            suspend.target
+    $has_resume && return
 
-        info "Writing /etc/systemd/sleep.conf.d/disable-sleep.conf ..."
-        _sudo mkdir -p /etc/systemd/sleep.conf.d
-        _sudo tee /etc/systemd/sleep.conf.d/disable-sleep.conf > /dev/null << 'EOF'
-[Sleep]
-AllowHibernation=no
-AllowHybridSleep=no
-AllowSuspendThenHibernate=no
-AllowSuspend=no
-EOF
-    fi
+    info "Masking sleep/suspend/hibernate targets ..."
+    # systemctl mask creates /dev/null symlinks — works in chroot and live system.
+    system_systemctl mask \
+        hibernate.target \
+        hybrid-sleep.target \
+        sleep.target \
+        suspend-then-hibernate.target \
+        suspend.target
+
+    info "Writing /etc/systemd/sleep.conf.d/disable-sleep.conf ..."
+    _sudo mkdir -p /etc/systemd/sleep.conf.d
+    sleep_conf_content | _sudo tee /etc/systemd/sleep.conf.d/disable-sleep.conf > /dev/null
 }
 
 # ── ThinkPad: udev rule ───────────────────────────────────────────────────────
