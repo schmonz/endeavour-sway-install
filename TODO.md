@@ -7,6 +7,9 @@
    - lid close -> what do I see on lid open?
 - the feature-detection variables need to be renamed to `HAS_*`,
   defaulting to `true` or `false` to match "typical" or "usual" computers
+- test helper `reset_flags()` should move to the main script, maybe by
+  a different name, and thereby reduce duplication in how the feature vars
+  are (re)inited
 
 ## Stubs needing implementation
 

@@ -105,11 +105,11 @@ reset_flags() {
     HAS_CROS_FKEYS=false
     HAS_AMBIENT_LIGHT_SENSOR=false
     HAS_KBD_BACKLIGHT=false
-    NEEDS_MBPFAN=false
+    HAS_APPLESMC=false
     HAS_FACETIMEHD=false
-    PHANTOM_LVDS2=false
-    NEEDS_ZSWAP=false
+    HAS_PHANTOM_SECOND_DISPLAY=false
+    HAS_PLENTY_OF_RAM=false
     HAS_IR_RECEIVER=false
-    THINKPAD_GOODIES=false
-    NEEDS_SOFTWARE_GL=false
+    HAS_THINKPAD_HARDWARE=false
+    HAS_GL_CAPABLE_GPU=true
 }

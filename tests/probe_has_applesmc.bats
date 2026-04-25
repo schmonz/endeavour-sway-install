@@ -7,29 +7,29 @@ setup() {
     reset_flags
 }
 
-@test "probe_needs_mbpfan: macbookair-71 sets NEEDS_MBPFAN=true" {
+@test "probe_has_applesmc: macbookair-71 sets HAS_APPLESMC=true" {
     need_specimen "macbookair-71/dmidecode-system-manufacturer.txt"
     need_specimen "macbookair-71/dmidecode-system-product-name.txt"
-    probe_needs_mbpfan \
+    probe_has_applesmc \
         "$(specimen macbookair-71/dmidecode-system-manufacturer.txt)" \
         "$(specimen macbookair-71/dmidecode-system-product-name.txt)"
-    [[ "$NEEDS_MBPFAN" == "true" ]]
+    [[ "$HAS_APPLESMC" == "true" ]]
 }
 
-@test "probe_needs_mbpfan: macbookpro-52 sets NEEDS_MBPFAN=true" {
+@test "probe_has_applesmc: macbookpro-52 sets HAS_APPLESMC=true" {
     need_specimen "macbookpro-52/dmidecode-system-manufacturer.txt"
     need_specimen "macbookpro-52/dmidecode-system-product-name.txt"
-    probe_needs_mbpfan \
+    probe_has_applesmc \
         "$(specimen macbookpro-52/dmidecode-system-manufacturer.txt)" \
         "$(specimen macbookpro-52/dmidecode-system-product-name.txt)"
-    [[ "$NEEDS_MBPFAN" == "true" ]]
+    [[ "$HAS_APPLESMC" == "true" ]]
 }
 
-@test "probe_needs_mbpfan: thinkpad-x270 leaves NEEDS_MBPFAN=false" {
+@test "probe_has_applesmc: thinkpad-x270 leaves HAS_APPLESMC=false" {
     need_specimen "thinkpad-x270/dmidecode-system-manufacturer.txt"
     need_specimen "thinkpad-x270/dmidecode-system-product-name.txt"
-    probe_needs_mbpfan \
+    probe_has_applesmc \
         "$(specimen thinkpad-x270/dmidecode-system-manufacturer.txt)" \
         "$(specimen thinkpad-x270/dmidecode-system-product-name.txt)"
-    [[ "$NEEDS_MBPFAN" == "false" ]]
+    [[ "$HAS_APPLESMC" == "false" ]]
 }

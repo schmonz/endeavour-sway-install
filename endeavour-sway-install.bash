@@ -96,13 +96,13 @@ HAS_AVS_AUDIO=false     # run chromebook-linux-audio AVS setup
 HAS_CROS_FKEYS=false     # install cros-keyboard-map
 HAS_AMBIENT_LIGHT_SENSOR=false # install iio-sensor-proxy + clight, enable clightd
 HAS_KBD_BACKLIGHT=false        # auto-detect keyboard backlight and add Sway bindings
-NEEDS_MBPFAN=false         # install + enable mbpfan
+HAS_APPLESMC=false         # install + enable mbpfan
 HAS_FACETIMEHD=false       # install facetimehd-dkms (FaceTime HD webcam)
-PHANTOM_LVDS2=false        # disable phantom second internal display
-NEEDS_ZSWAP=false          # enable zswap in GRUB_CMDLINE_LINUX_DEFAULT
+HAS_PHANTOM_SECOND_DISPLAY=false # disable phantom second internal display
+HAS_PLENTY_OF_RAM=false    # skip zswap (GRUB_CMDLINE_LINUX_DEFAULT)
 HAS_IR_RECEIVER=false      # set up LIRC infrared receiver
-THINKPAD_GOODIES=false     # ThinkPad-specific: smart card, buttons, fingerprint
-NEEDS_SOFTWARE_GL=false    # set LIBGL_ALWAYS_SOFTWARE=1 (GPU can't handle modern GL)
+HAS_THINKPAD_HARDWARE=false # ThinkPad-specific: smart card, buttons, fingerprint
+HAS_GL_CAPABLE_GPU=true    # GPU handles modern OpenGL (false → LIBGL_ALWAYS_SOFTWARE=1)
 
 report_capabilities() {
     local fmt='  %-34s %s\n'
@@ -116,13 +116,13 @@ report_capabilities() {
         printf "$fmt" "HAS_AVS_AUDIO=$HAS_AVS_AUDIO"         "chromebook-linux-audio AVS setup"
         printf "$fmt" "HAS_AMBIENT_LIGHT_SENSOR=$HAS_AMBIENT_LIGHT_SENSOR" "iio-sensor-proxy + clight"
         printf "$fmt" "HAS_KBD_BACKLIGHT=$HAS_KBD_BACKLIGHT"               "keyboard backlight auto-setup"
-        printf "$fmt" "NEEDS_MBPFAN=$NEEDS_MBPFAN"                 "mbpfan Mac fan control"
+        printf "$fmt" "HAS_APPLESMC=$HAS_APPLESMC"                 "mbpfan Mac fan control"
         printf "$fmt" "HAS_FACETIMEHD=$HAS_FACETIMEHD"             "facetimehd-dkms"
-        printf "$fmt" "PHANTOM_LVDS2=$PHANTOM_LVDS2"               "disable phantom LVDS-2 display"
-        printf "$fmt" "NEEDS_ZSWAP=$NEEDS_ZSWAP"                   "enable zswap"
+        printf "$fmt" "HAS_PHANTOM_SECOND_DISPLAY=$HAS_PHANTOM_SECOND_DISPLAY" "phantom second display"
+        printf "$fmt" "HAS_PLENTY_OF_RAM=$HAS_PLENTY_OF_RAM"       "skip zswap"
         printf "$fmt" "HAS_IR_RECEIVER=$HAS_IR_RECEIVER"           "LIRC infrared"
-        printf "$fmt" "THINKPAD_GOODIES=$THINKPAD_GOODIES"         "ThinkPad smart card/buttons/fingerprint"
-        printf "$fmt" "NEEDS_SOFTWARE_GL=$NEEDS_SOFTWARE_GL"       "LIBGL_ALWAYS_SOFTWARE=1"
+        printf "$fmt" "HAS_THINKPAD_HARDWARE=$HAS_THINKPAD_HARDWARE" "ThinkPad smart card/buttons/fingerprint"
+        printf "$fmt" "HAS_GL_CAPABLE_GPU=$HAS_GL_CAPABLE_GPU"     "GPU handles modern OpenGL"
         printf "If any flag looks wrong, improve its probe in detect_machine_capabilities().\n"
     )
     info "$text"
@@ -184,11 +184,11 @@ probe_kbd_backlight() {
         | grep -qiE "kbd|keyboard" && HAS_KBD_BACKLIGHT=true || true
 }
 
-# NEEDS_MBPFAN: Apple MacBook — needs mbpfan to control fans via applesmc.
-probe_needs_mbpfan() {    # args: vendor, product
+# HAS_APPLESMC: Apple MacBook — applesmc present, needs mbpfan for fan control.
+probe_has_applesmc() {    # args: vendor, product
     [[ "${1:-}" == "Apple Inc." ]] \
         && [[ "${2:-}" == MacBook* ]] \
-        && NEEDS_MBPFAN=true || true
+        && HAS_APPLESMC=true || true
 }
 
 # HAS_FACETIMEHD: Broadcom FaceTime HD camera (PCIe ID 14e4:1570).
@@ -196,17 +196,17 @@ probe_has_facetimehd() {      # arg: lspci -n output
     grep -q "14e4:1570" <<< "${1:-}" && HAS_FACETIMEHD=true || true
 }
 
-# PHANTOM_LVDS2: second internal LVDS output enumerated by DRM.
+# HAS_PHANTOM_SECOND_DISPLAY: second internal LVDS output enumerated by DRM.
 # Requires GPU driver to be loaded — may be false during phase 1 chroot.
-probe_phantom_lvds2() {
+probe_has_phantom_second_display() {
     ls "${PROBE_ROOT}/sys/class/drm/" 2>/dev/null \
-        | grep -q "LVDS-2" && PHANTOM_LVDS2=true || true
+        | grep -q "LVDS-2" && HAS_PHANTOM_SECOND_DISPLAY=true || true
 }
 
-# NEEDS_ZSWAP: total RAM under 8 GiB.
-probe_needs_zswap() {         # arg: MemTotal value in kB
+# HAS_PLENTY_OF_RAM: total RAM at least 8 GiB; machines with less get zswap.
+probe_has_plenty_of_ram() {   # arg: MemTotal value in kB
     local kb="${1:-0}"
-    (( kb > 0 && kb < 8*1024*1024 )) && NEEDS_ZSWAP=true || true
+    (( kb >= 8*1024*1024 )) && HAS_PLENTY_OF_RAM=true || true
 }
 
 # HAS_IR_RECEIVER: LIRC character device present.
@@ -214,21 +214,21 @@ probe_ir_receiver() {
     ls "${PROBE_ROOT}"/dev/lirc* 2>/dev/null | grep -q . && HAS_IR_RECEIVER=true || true
 }
 
-# THINKPAD_GOODIES: Lenovo ThinkPad SMBIOS — TrackPoint buttons, smart card,
+# HAS_THINKPAD_HARDWARE: Lenovo ThinkPad SMBIOS — TrackPoint buttons, smart card,
 # ThinkVantage button, fingerprint reader are ThinkPad-specific.
-probe_thinkpad_goodies() {    # args: vendor, product, version
+probe_has_thinkpad_hardware() {    # args: vendor, product, version
     if [[ "${1:-}" == "LENOVO" ]] \
        && { echo "${2:-}" | grep -qi "ThinkPad" \
             || echo "${3:-}" | grep -qi "ThinkPad"; }; then
-        THINKPAD_GOODIES=true
+        HAS_THINKPAD_HARDWARE=true
     fi
 }
 
-# NEEDS_SOFTWARE_GL: old ATI/AMD GPU (r300 driver family) that cannot drive
-# modern OpenGL; requires llvmpipe via LIBGL_ALWAYS_SOFTWARE=1.
+# HAS_GL_CAPABLE_GPU: GPU can drive modern OpenGL; r300-family ATI/AMD cannot
+# and require llvmpipe via LIBGL_ALWAYS_SOFTWARE=1.
 # 1002:5b6x = RV370 (Radeon X300/X600); 1002:7145 = M26 (Mobility Radeon X1400)
-probe_needs_software_gl() {   # arg: lspci -n output
-    grep -qE "1002:(5b6|7145)" <<< "${1:-}" && NEEDS_SOFTWARE_GL=true || true
+probe_has_gl_capable_gpu() {  # arg: lspci -n output
+    grep -qE "1002:(5b6|7145)" <<< "${1:-}" && HAS_GL_CAPABLE_GPU=false || true
 }
 
 # ── Capability orchestrator ───────────────────────────────────────────────────
@@ -268,13 +268,13 @@ detect_machine_capabilities() {
     probe_cros_ec
     probe_ambient_light_sensor
     probe_kbd_backlight
-    probe_needs_mbpfan          "$vendor" "$product"
-    probe_has_facetimehd        "$lspci_out"
-    probe_phantom_lvds2
-    probe_needs_zswap           "$total_mem_kb"
+    probe_has_applesmc               "$vendor" "$product"
+    probe_has_facetimehd             "$lspci_out"
+    probe_has_phantom_second_display
+    probe_has_plenty_of_ram          "$total_mem_kb"
     probe_ir_receiver
-    probe_thinkpad_goodies      "$vendor" "$product" "$version"
-    probe_needs_software_gl     "$lspci_out"
+    probe_has_thinkpad_hardware      "$vendor" "$product" "$version"
+    probe_has_gl_capable_gpu         "$lspci_out"
 
     report_capabilities
 }
@@ -1189,25 +1189,25 @@ EOF
         fi
     fi
 
-    $NEEDS_MBPFAN   && run_setup_step setup_mac_fan \
+    $HAS_APPLESMC            && run_setup_step setup_mac_fan \
         "Installing mbpfan ..." \
         "Enable mbpfan Mac fan control."
-    $HAS_FACETIMEHD && aur_install facetimehd-dkms
-    $PHANTOM_LVDS2  && run_setup_step setup_nvidia_display \
+    $HAS_FACETIMEHD          && aur_install facetimehd-dkms
+    $HAS_PHANTOM_SECOND_DISPLAY && run_setup_step setup_nvidia_display \
         "Disabling phantom second internal display (LVDS-2) ..." \
         "Disable second internal display (MacBookPro5,2 LVDS-2)."
-    $NEEDS_ZSWAP    && run_setup_step setup_zswap \
+    $HAS_PLENTY_OF_RAM       || run_setup_step setup_zswap \
         "Enabling zswap ..." \
         "Enable zswap."
 
-    if $NEEDS_SOFTWARE_GL; then
+    if ! $HAS_GL_CAPABLE_GPU; then
         info "Enabling software GL rendering (LIBGL_ALWAYS_SOFTWARE=1) ..."
         mkdir -p ~/.config/environment.d
         echo 'LIBGL_ALWAYS_SOFTWARE=1' > ~/.config/environment.d/50-softgl.conf
     fi
 
-    $HAS_IR_RECEIVER   && setup_infrared_receiver
-    $THINKPAD_GOODIES  && setup_thinkpad_goodies
+    $HAS_IR_RECEIVER         && setup_infrared_receiver
+    $HAS_THINKPAD_HARDWARE   && setup_thinkpad_goodies
     add_sway_poweroff_binding "$target_user"
 
     $HAS_POWERBUTTON_EVENTS || \
