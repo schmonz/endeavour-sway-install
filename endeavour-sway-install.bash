@@ -148,7 +148,7 @@ probe_has_resume() {          # arg: bios-version string
 
 # HAS_LID_EVENTS: kernel input events for lid are reliable.
 # Chromebook firmware handles lid events via EC; "Lid Switch" node exists but never fires.
-probe_lid_events() {
+probe_has_lid_events() {
     [[ -f "${PROBE_ROOT}/proc/acpi/button/lid/LID0/state" ]] || return 0
     [[ -e "${PROBE_ROOT}/dev/cros_ec" ]] && { HAS_LID_EVENTS=false; return; }
     grep -rql "Lid Switch" "${PROBE_ROOT}/sys/class/input/input"*/name 2>/dev/null \
@@ -161,13 +161,13 @@ probe_lid_events() {
 # A non-LNXPWRBN "Power Button" (e.g. Apple firmware button on Mac) bypasses
 # logind's exclusive grab and delivers events directly to libinput, so HAS_POWERBUTTON_EVENTS
 # stays true even if the LNXPWRBN device has the power-switch tag.
-probe_powerbutton_events() { # args: LNXPWRBN udevadm output, has_non_lnxpwrbn_power_button
+probe_has_powerbutton_events() { # args: LNXPWRBN udevadm output, has_non_lnxpwrbn_power_button
     ${2:-false} && return 0
     grep -q "power-switch" <<< "${1:-}" && HAS_POWERBUTTON_EVENTS=false || true
 }
 
 # HAS_CROS_FKEYS + HAS_AVS_AUDIO: Chrome EC present.
-probe_cros_ec() {
+probe_has_cros_ec() {
     if [[ -d "${PROBE_ROOT}/sys/class/chromeos/cros_ec" ]] \
        || [[ -e "${PROBE_ROOT}/dev/cros_ec" ]]; then
         HAS_CROS_FKEYS=true
@@ -176,13 +176,13 @@ probe_cros_ec() {
 }
 
 # HAS_AMBIENT_LIGHT_SENSOR: IIO illuminance sensor visible in sysfs.
-probe_ambient_light_sensor() {
+probe_has_ambient_light_sensor() {
     ls "${PROBE_ROOT}"/sys/bus/iio/devices/*/in_illuminance* 2>/dev/null \
         | grep -q . && HAS_AMBIENT_LIGHT_SENSOR=true || true
 }
 
 # HAS_KBD_BACKLIGHT: keyboard backlight LED device in sysfs.
-probe_kbd_backlight() {
+probe_has_kbd_backlight() {
     ls "${PROBE_ROOT}/sys/class/leds/" 2>/dev/null \
         | grep -qiE "kbd|keyboard" && HAS_KBD_BACKLIGHT=true || true
 }
@@ -213,7 +213,7 @@ probe_has_plenty_of_ram() {   # arg: MemTotal value in kB
 }
 
 # HAS_IR_RECEIVER: LIRC character device present.
-probe_ir_receiver() {
+probe_has_ir_receiver() {
     ls "${PROBE_ROOT}"/dev/lirc* 2>/dev/null | grep -q . && HAS_IR_RECEIVER=true || true
 }
 
@@ -265,17 +265,17 @@ detect_machine_capabilities() {
         fi
     done
 
-    probe_has_resume            "$bios"
-    probe_lid_events
-    probe_powerbutton_events  "$udev_power_out" "$has_non_lnx_power_button"
-    probe_cros_ec
-    probe_ambient_light_sensor
-    probe_kbd_backlight
+    probe_has_resume                 "$bios"
+    probe_has_lid_events
+    probe_has_powerbutton_events     "$udev_power_out" "$has_non_lnx_power_button"
+    probe_has_cros_ec
+    probe_has_ambient_light_sensor
+    probe_has_kbd_backlight
     probe_has_applesmc               "$vendor" "$product"
     probe_has_facetimehd             "$lspci_out"
     probe_has_phantom_second_display
     probe_has_plenty_of_ram          "$total_mem_kb"
-    probe_ir_receiver
+    probe_has_ir_receiver
     probe_has_thinkpad_hardware      "$vendor" "$product" "$version"
     probe_has_gl_capable_gpu         "$lspci_out"
 
