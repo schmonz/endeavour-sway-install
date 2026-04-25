@@ -92,8 +92,8 @@ clone_if_missing() { local url="$1" dir="$2"; [[ -d "$dir" ]] || git clone "$url
 HAS_RESUME=true            # system has working suspend/resume
 HAS_LID_EVENTS=true        # kernel input events for lid (e.g. Lid Switch)
 HAS_POWERBUTTON_EVENTS=true  # events reach the UI (not grabbed by logind)
-CHROMEBOOK_AUDIO=false     # run chromebook-linux-audio AVS setup
-CHROMEBOOK_FKEYS=false     # install cros-keyboard-map
+HAS_AVS_AUDIO=false     # run chromebook-linux-audio AVS setup
+HAS_CROS_FKEYS=false     # install cros-keyboard-map
 AMBIENT_LIGHT_SENSOR=false # install iio-sensor-proxy + clight, enable clightd
 KBD_BACKLIGHT=false        # auto-detect keyboard backlight and add Sway bindings
 NEEDS_MBPFAN=false         # install + enable mbpfan
@@ -112,8 +112,8 @@ report_capabilities() {
         printf "$fmt" "HAS_RESUME=$HAS_RESUME"                     "system has working suspend/resume"
         printf "$fmt" "HAS_LID_EVENTS=$HAS_LID_EVENTS"             "kernel input events for lid (e.g. Lid Switch)"
         printf "$fmt" "HAS_POWERBUTTON_EVENTS=$HAS_POWERBUTTON_EVENTS" "events reach the UI (not grabbed by logind)"
-        printf "$fmt" "CHROMEBOOK_FKEYS=$CHROMEBOOK_FKEYS"         "cros-keyboard-map"
-        printf "$fmt" "CHROMEBOOK_AUDIO=$CHROMEBOOK_AUDIO"         "chromebook-linux-audio AVS setup"
+        printf "$fmt" "HAS_CROS_FKEYS=$HAS_CROS_FKEYS"         "cros-keyboard-map"
+        printf "$fmt" "HAS_AVS_AUDIO=$HAS_AVS_AUDIO"         "chromebook-linux-audio AVS setup"
         printf "$fmt" "AMBIENT_LIGHT_SENSOR=$AMBIENT_LIGHT_SENSOR" "iio-sensor-proxy + clight"
         printf "$fmt" "KBD_BACKLIGHT=$KBD_BACKLIGHT"               "keyboard backlight auto-setup"
         printf "$fmt" "NEEDS_MBPFAN=$NEEDS_MBPFAN"                 "mbpfan Mac fan control"
@@ -163,12 +163,12 @@ probe_powerbutton_events() { # args: LNXPWRBN udevadm output, has_non_lnxpwrbn_p
     grep -q "power-switch" <<< "${1:-}" && HAS_POWERBUTTON_EVENTS=false || true
 }
 
-# CHROMEBOOK_FKEYS + CHROMEBOOK_AUDIO: Chrome EC present = Chromebook hardware.
-probe_chromebook() {
+# HAS_CROS_FKEYS + HAS_AVS_AUDIO: Chrome EC present.
+probe_cros_ec() {
     if [[ -d "${PROBE_ROOT}/sys/class/chromeos/cros_ec" ]] \
        || [[ -e "${PROBE_ROOT}/dev/cros_ec" ]]; then
-        CHROMEBOOK_FKEYS=true
-        CHROMEBOOK_AUDIO=true
+        HAS_CROS_FKEYS=true
+        HAS_AVS_AUDIO=true
     fi
 }
 
@@ -265,7 +265,7 @@ detect_machine_capabilities() {
     probe_has_resume            "$bios"
     probe_lid_events
     probe_powerbutton_events  "$udev_power_out" "$has_non_lnx_power_button"
-    probe_chromebook
+    probe_cros_ec
     probe_ambient_light_sensor
     probe_kbd_backlight
     probe_needs_mbpfan          "$vendor" "$product"
@@ -567,7 +567,7 @@ EOF
 
 # ── Machine-specific stubs (phase 3) ─────────────────────────────────────────
 
-setup_chromebook_audio() {
+setup_avs_audio() {
     info "Setting up Chromebook audio ..."
     clone_if_missing https://github.com/WeirdTreeThing/chromebook-linux-audio ~/trees/chromebook-linux-audio
     cd ~/trees/chromebook-linux-audio
@@ -575,7 +575,7 @@ setup_chromebook_audio() {
     cd -
 }
 
-setup_chromebook_fkeys() {
+setup_cros_fkeys() {
     info "Setting up Chromebook F-keys ..."
     clone_if_missing https://github.com/WeirdTreeThing/cros-keyboard-map ~/trees/cros-keyboard-map
     cd ~/trees/cros-keyboard-map
@@ -1159,8 +1159,8 @@ EOF
 
     info "=== Phase 3: machine-specific ==="
 
-    $CHROMEBOOK_AUDIO && setup_chromebook_audio
-    $CHROMEBOOK_FKEYS && setup_chromebook_fkeys
+    $HAS_AVS_AUDIO && setup_avs_audio
+    $HAS_CROS_FKEYS && setup_cros_fkeys
     $HAS_LID_EVENTS   || install_lid_handler
 
     # XXX clight disabled pending investigation of screen-blanking on MBA7,1.
