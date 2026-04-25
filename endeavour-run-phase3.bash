@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 notes="${HOME}/.config/endeavour-post-phase3.txt"
 sway_autostart="${HOME}/.config/sway/config.d/autostart_applications"
@@ -21,8 +22,8 @@ case "${1:-}" in
         cat "${warnings}"
         echo
     fi
-    endeavour-sway-install "${USER}" --phase 3 2>&1 | tee "${log}"
-    rc=${PIPESTATUS[0]}
+    rc=0
+    endeavour-sway-install "${USER}" --phase 3 2>&1 | tee "${log}" || rc=$?
     echo
     if [[ $rc -eq 0 ]]; then
         rm -f "${warnings}"

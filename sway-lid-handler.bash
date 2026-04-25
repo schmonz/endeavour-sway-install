@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 #
 # Polls /proc/acpi/button/lid/LID0/state and acts on lid open/close.
 #
