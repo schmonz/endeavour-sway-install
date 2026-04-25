@@ -411,6 +411,76 @@ EOF
     fi
 }
 
+# ── Phase 3: setup steps ─────────────────────────────────────────────────────
+
+setup_1password() {
+    aur_install 1password
+    configure_sway_autostart '1password'
+}
+
+setup_localsend() {
+    aur_install localsend-bin
+    # XXX configure LocalSend to use the real system hostname
+    # ~/.local/share/org.localsend.localsend_app/shared_preferences.json
+    configure_sway_autostart 'localsend --hidden'
+}
+
+setup_communication_apps() {
+    aur_install slack-electron zoom teams-for-linux-electron-bin
+    # Geolocation (disabled): xdg-desktop-portal-gtk + XDG_CURRENT_DESKTOP in sway autostart
+    append_once ~/.config/zoomus.conf 'enableWaylandShare=true'
+}
+
+setup_cloud_sync() {
+    aur_install rclone
+    # After auth error: grab Cookie + X-APPLE-WEBAUTH-HSA-TRUST from browser devtools, then:
+    #   rclone config update icloud cookies='' trust_token=""
+    # Token expires monthly. https://forum.rclone.org/t/icloud-connect-not-working-http-error-400/52019/44
+}
+
+setup_dev_environment() {
+    aur_install clion clion-jre
+}
+
+setup_writing_tools() {
+    aur_install dawn-writer-bin
+}
+
+setup_claude_tools() {
+    aur_install claude-code claude-desktop-bin claude-cowork-service
+}
+
+setup_tailscale_userspace() {
+    local target_user="$1"
+    # Group membership gives persistent socket access regardless of auth state.
+    # --operator is belt-and-suspenders for CLI authorization.
+    _sudo usermod -aG tailscale "$target_user" 2>/dev/null || true
+    _sudo tailscale set --operator="$target_user"
+    configure_sway_autostart 'tailscale systray' true
+    # accept-dns and accept-routes require an authenticated session; moved to notes.
+}
+
+update_firmware() {
+    echo y | fwupdmgr get-updates || true
+    fwupdmgr update || true
+    # MrChromebox firmware: https://docs.mrchromebox.tech/docs/firmware/updating-firmware.html
+}
+
+setup_update_notifier() {
+    eos-update-notifier -init
+}
+
+configure_desktop_tools() {
+    sed -i 's/htop/btop/g' ~/.config/waybar/config
+    sed -i 's/waybar_htop/waybar_btop/g' ~/.config/sway/config.d/application_defaults
+    sed -i 's|^# launch=xdg-open \${url}$|launch=xdg-open ${url}|' ~/.config/foot/foot.ini
+}
+
+revoke_phase3_sudo() {
+    _sudo rm -f /etc/sudoers.d/99-phase3-nopasswd
+    etckeeper_commit "Remove temporary phase-3 NOPASSWD sudo."
+}
+
 # ── Machine-specific stubs (phase 3) ─────────────────────────────────────────
 
 setup_avs_audio() {
@@ -488,6 +558,7 @@ setup_zswap() {
 }
 
 setup_web_browser() {
+    aur_install helium-browser-bin ungoogled-chromium-bin webapp-manager
     append_once ~/.config/sway/config.d/application_defaults \
         'for_window [app_id="helium"] inhibit_idle fullscreen'
     sed -i 's|exec firefox|exec xdg-open https://|g' ~/.config/sway/config.d/default
@@ -543,6 +614,7 @@ setup_power_saving() {
 }
 
 setup_timeshift() {
+    aur_install timeshift-autosnap
     system_systemctl enable cronie
 }
 
@@ -551,6 +623,10 @@ setup_ambient_light_sensor() {
     system_systemctl enable clightd
     configure_sway_autostart 'clight'
     ls /sys/bus/iio/devices/*/in_illuminance* || true
+}
+
+setup_facetimehd() {
+    aur_install facetimehd-dkms
 }
 
 setup_infrared_receiver() {
@@ -744,6 +820,23 @@ write_phase3_sudoers() {
     chmod 440 "$file"
 }
 
+# ── Phase 1: install steps ────────────────────────────────────────────────────
+
+remove_firefox()           { pacman -Rs --noconfirm firefox 2>/dev/null || true; }
+install_version_control()  { pacman_install etckeeper git git-delta; }
+install_bluetooth()        { pacman_install blueman; }
+install_networking()       { pacman_install gvfs-dnssd tailscale; }
+install_keyring()          { pacman_install seahorse; }
+install_firmware_tools()   { pacman_install fwupd; }
+install_communication()    { pacman_install discord signal-desktop guvcview; }
+install_office_suite()     { pacman_install libreoffice-fresh abiword; }
+install_printing()         { pacman_install cups cups-browsed system-config-printer; }
+install_desktop_portals()  { pacman_install xdg-desktop-portal xdg-desktop-portal-wlr; }
+install_update_notifier()  { pacman_install eos-update-notifier; }
+install_system_tools()     { pacman_install btop fastfetch tmux the_silver_searcher xorg-xhost; }
+install_dev_tools()        { pacman_install apostrophe glow tig github-cli socat bats; }
+install_snapshot_support() { pacman_install grub-btrfs; }
+
 # ── Phase 1: installer chroot ─────────────────────────────────────────────────
 
 phase1() {
@@ -756,30 +849,24 @@ phase1() {
     target_home=$(getent passwd "$target_user" | cut -d: -f6)
 
     detect_machine_capabilities
-
     configure_root_git_identity
 
-    info "=== Phase 1: pacman installs ==="
-    # Replaced by Helium in phase 3.
-    pacman -Rs --noconfirm firefox || true
-
-    # XXX other cups goodies the installer was offering?
-    pacman_install \
-        etckeeper git git-delta \
-        blueman \
-        gvfs-dnssd tailscale \
-        seahorse \
-        fwupd \
-        discord signal-desktop guvcview \
-        libreoffice-fresh abiword cups cups-browsed system-config-printer \
-        xdg-desktop-portal xdg-desktop-portal-wlr \
-        eos-update-notifier \
-        btop fastfetch tmux the_silver_searcher xorg-xhost \
-        apostrophe glow tig github-cli socat bats \
-        grub-btrfs
-
-    info "=== Phase 1: etckeeper init ==="
+    remove_firefox
+    install_version_control
     init_etckeeper
+
+    install_bluetooth
+    install_networking
+    install_keyring
+    install_firmware_tools
+    install_communication
+    install_office_suite
+    install_printing
+    install_desktop_portals
+    install_update_notifier
+    install_system_tools
+    install_dev_tools
+    install_snapshot_support
 
     run_setup_step setup_autologin \
         "=== Phase 1: autologin ===" \
@@ -897,142 +984,55 @@ phase3() {
     require_sudo
     detect_machine_capabilities
 
-    info "=== Phase 3: yay installs (common) ==="
-    aur_install \
-        timeshift-autosnap \
-        1password \
-        helium-browser-bin ungoogled-chromium-bin webapp-manager \
-        localsend-bin \
-        slack-electron \
-        zoom teams-for-linux-electron-bin \
-        rclone \
-        clion clion-jre \
-        dawn-writer-bin \
-        claude-code claude-desktop-bin claude-cowork-service
-
     # XXX CLI equivalent: open the Timeshift app and follow the prompts
     # XXX once automated, this graduates to Phase 2
     run_setup_step setup_timeshift \
         "=== Phase 3: timeshift ===" \
         "Enable Timeshift."
-
-    info "=== Phase 3: web browser ==="
+    setup_1password
     setup_web_browser
-
-    # Geolocation (disabled):
-    # sudo pacman -S --noconfirm xdg-desktop-portal-gtk
-    # systemctl --user enable --now xdg-desktop-portal xdg-desktop-portal-gtk
-    # sed -i 's/import-environment DISPLAY WAYLAND_DISPLAY SWAYSOCK/import-environment DISPLAY WAYLAND_DISPLAY SWAYSOCK XDG_CURRENT_DESKTOP/' \
-    #     ~/.config/sway/config.d/autostart_applications
-
-    info "=== Phase 3: passwords ==="
-    configure_sway_autostart '1password'
-
-    info "=== Phase 3: networking ==="
-    # Group membership gives persistent socket access regardless of auth state.
-    # --operator is belt-and-suspenders for CLI authorization.
-    _sudo usermod -aG tailscale "$target_user" 2>/dev/null || true
-    _sudo tailscale set --operator="$target_user"
-    configure_sway_autostart 'tailscale systray' true
-    # accept-dns and accept-routes require an authenticated session; moved to notes.
-    # XXX maybe exit node also isn't working? admin console says:
-    # XXX   "This machine is misconfigured and cannot relay traffic."
-    # XXX but maybe that's enough for Plex (or Jellyfin)
-    configure_sway_autostart 'localsend --hidden'
-    # XXX configure LocalSend to use the real system hostname
-    # ~/.local/share/org.localsend.localsend_app/shared_preferences.json
-
-    info "=== Phase 3: power saving ==="
+    setup_localsend
+    setup_communication_apps
+    setup_cloud_sync
+    setup_dev_environment
+    setup_writing_tools
+    setup_claude_tools
+    setup_tailscale_userspace "$target_user"
     setup_power_saving
-
-    info "=== Phase 3: firmware updates ==="
-    echo y | fwupdmgr get-updates || true
-    fwupdmgr update || true
-    # MrChromebox firmware: https://docs.mrchromebox.tech/docs/firmware/updating-firmware.html
-
-    info "=== Phase 3: screen sharing ==="
-    # XXX these already seem to be installed
-    append_once ~/.config/zoomus.conf 'enableWaylandShare=true'
-    # XXX has screen sharing actually worked?
-
-    info "=== Phase 3: update notifier ==="
-    eos-update-notifier -init
-    # XXX runs on a timer -- how often?
-    # XXX show up in Waybar?
-
-    info "=== Phase 3: other tools ==="
-    sed -i 's/htop/btop/g' ~/.config/waybar/config
-    sed -i 's/waybar_htop/waybar_btop/g' ~/.config/sway/config.d/application_defaults
-
-    info "Configuring Foot URL launching ..."
-    sed -i 's|^# launch=xdg-open \${url}$|launch=xdg-open ${url}|' ~/.config/foot/foot.ini
-
-    # info "=== Phase 3: cloud storage ==="
-    # rclone config
-    # After authentication error: log into icloud.com in a browser, open Chrome
-    # Dev Tools → Network tab, click a request, grab the full Cookie header and
-    # X-APPLE-WEBAUTH-HSA-TRUST value, then:
-    #   rclone config update icloud cookies='' trust_token=""
-    # Token expires monthly (~30 days).
-    # https://forum.rclone.org/t/icloud-connect-not-working-http-error-400/52019/44
-
-    info "=== Phase 3: swayidle ==="
+    update_firmware
+    setup_update_notifier
+    configure_desktop_tools
     setup_swayidle $HAS_LID_EVENTS
 
-    info "=== Phase 3: machine-specific ==="
-
-    $HAS_AVS_AUDIO && setup_avs_audio
-    $HAS_CROS_FKEYS && setup_cros_fkeys
-    $HAS_LID_EVENTS   || install_lid_handler
-
-    # XXX clight disabled pending investigation of screen-blanking on MBA7,1.
-    # When re-enabling: verify dimmer module key names before adding dimmer.conf.
-    # if $HAS_AMBIENT_LIGHT_SENSOR; then
-    #     run_setup_step setup_ambient_light_sensor \
-    #         "=== Phase 3: ambient light sensor ===" \
-    #         "Enable ambient light sensor (iio-sensor-proxy + clightd)."
-    #     run_setup_step setup_mac_light_sensors \
-    #         "Configuring clight brightness floor ..." \
-    #         "Configure clight brightness floor (prevent invisible screen)."
-    # fi
-
-    $HAS_KBD_BACKLIGHT && setup_kbd_backlight
-
-    $HAS_APPLESMC            && run_setup_step setup_mac_fan \
+    $HAS_AVS_AUDIO              && setup_avs_audio
+    $HAS_CROS_FKEYS             && setup_cros_fkeys
+    $HAS_LID_EVENTS             || install_lid_handler
+    $HAS_KBD_BACKLIGHT          && setup_kbd_backlight
+    $HAS_APPLESMC               && run_setup_step setup_mac_fan \
         "Installing mbpfan ..." \
         "Enable mbpfan Mac fan control."
-    $HAS_FACETIMEHD          && aur_install facetimehd-dkms
+    $HAS_FACETIMEHD             && setup_facetimehd
     $HAS_PHANTOM_SECOND_DISPLAY && run_setup_step setup_nvidia_display \
         "Disabling phantom second internal display (LVDS-2) ..." \
         "Disable second internal display (MacBookPro5,2 LVDS-2)."
-    $HAS_PLENTY_OF_RAM       || run_setup_step setup_zswap \
+    $HAS_PLENTY_OF_RAM          || run_setup_step setup_zswap \
         "Enabling zswap ..." \
         "Enable zswap."
-
-    $HAS_GL_CAPABLE_GPU || setup_software_gl
-
-    $HAS_IR_RECEIVER         && setup_infrared_receiver
-    $HAS_THINKPAD_HARDWARE   && setup_thinkpad_goodies
+    $HAS_GL_CAPABLE_GPU         || setup_software_gl
+    $HAS_IR_RECEIVER            && setup_infrared_receiver
+    $HAS_THINKPAD_HARDWARE      && setup_thinkpad_goodies
     add_sway_poweroff_binding "$target_user"
-
-    $HAS_POWERBUTTON_EVENTS || \
+    $HAS_POWERBUTTON_EVENTS     || \
         info "Note: the udev grab release requires a re-login or reboot to take full effect."
 
     run_setup_step setup_autologin \
         "=== Phase 3: reconfigure autologin to Sway ===" \
         "Switch greetd autologin from TTY to Sway." "$target_user"
-
-    info "=== Phase 3: revoking temporary passwordless sudo ==="
-    _sudo rm -f /etc/sudoers.d/99-phase3-nopasswd
-    etckeeper_commit "Remove temporary phase-3 NOPASSWD sudo."
+    revoke_phase3_sudo
 
     info ""
     info "Phase 3 complete."
     info "  Remaining interactive steps after reboot: tailscale up; tailscale set --accept-dns=true; tailscale set --accept-routes; rclone config (optional)."
-    # XXX lid close: mute, lock, suspend
-    # XXX cursor to lower right: lock and sleep display
-    # XXX cursor to upper right: lock
-    # XXX desktop picture showing the hostname
 }
 
 # ── Phase detection ───────────────────────────────────────────────────────────
