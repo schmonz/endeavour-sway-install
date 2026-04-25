@@ -28,7 +28,6 @@ die()  { echo "ERROR: $*" >&2; exit 1; }
 info() { echo "==> $*"; }
 warn() { echo "WARN: $*" >&2; }
 
-# Accumulate warnings during unattended phases; user sees them on first login.
 accumulate_warning() {
     warn "$*"
     [[ $EUID -eq 0 ]] && echo "$*" >> "$WARNINGS_FILE" || true
@@ -47,7 +46,6 @@ require_sudo() {
     sudo -v || die "sudo credentials required."
 }
 
-# Append LINE to FILE only if not already present.
 append_once() {
     local file="$1" line="$2"
     grep -qF "$line" "$file" 2>/dev/null || printf '%s\n' "$line" >> "$file"
@@ -74,25 +72,20 @@ user_systemctl() {
     fi
 }
 
-# Register CMD in the Sway autostart config and launch it now if in a session.
-# Pass pkill=true to kill any prior instance first (for systray singletons).
-configure_sway_autostart() {
-    local cmd="$1" pkill="${2:-false}"
-    local autostart="${3:-${HOME}/.config/sway/config.d/autostart_applications}"
-    local line
-    if $pkill; then
-        line="exec sh -c \"pkill -f '$cmd' 2>/dev/null; $cmd\""
-    else
-        line="exec $cmd"
-    fi
-    append_once "$autostart" "$line"
+sway_autostart() {
+    local cmd="$1" file="${2:-${HOME}/.config/sway/config.d/autostart_applications}"
+    append_once "$file" "exec $cmd"
+}
+
+sway_autostart_singleton() {
+    local cmd="$1" file="${2:-${HOME}/.config/sway/config.d/autostart_applications}"
+    append_once "$file" "exec sh -c \"pkill -f '$cmd' 2>/dev/null; $cmd\""
 }
 
 fetch()         { curl -fsSL "$1" -o "$2"; }
 source_fetched() { local t; t=$(mktemp); fetch "$1" "$t"; source "$t"; rm -f "$t"; }
 run_fetched()    { local t; t=$(mktemp); fetch "$1" "$t"; bash "$t" "${@:2}"; rm -f "$t"; }
 
-# Clone URL into DIR only if DIR doesn't already exist.
 clone_if_missing() { local url="$1" dir="$2"; [[ -d "$dir" ]] || git clone "$url" "$dir"; }
 
 # ── Machine capabilities ──────────────────────────────────────────────────────
@@ -301,13 +294,6 @@ add_sway_poweroff_binding() {
 }
 
 # ── Swayidle ──────────────────────────────────────────────────────────────────
-#
-# EOS CE ships two separate swayidle entries; one uses exec_always, so every
-# Sway reload spawns a duplicate. setup_swayidle replaces them with a single
-# exec_always that kills any prior instance before starting.
-#
-# With lid events ($1=true): also lock before sleep and restore dpms on resume.
-# Without lid events ($1=false): suspend is disabled, so no before-sleep/after-resume.
 
 build_swayidle_line() {
     local has_lid_events="$1"
@@ -415,14 +401,14 @@ EOF
 
 setup_1password() {
     aur_install 1password
-    configure_sway_autostart '1password'
+    sway_autostart '1password'
 }
 
 setup_localsend() {
     aur_install localsend-bin
     # XXX configure LocalSend to use the real system hostname
     # ~/.local/share/org.localsend.localsend_app/shared_preferences.json
-    configure_sway_autostart 'localsend --hidden'
+    sway_autostart 'localsend --hidden'
 }
 
 setup_communication_apps() {
@@ -456,7 +442,7 @@ setup_tailscale_userspace() {
     # --operator is belt-and-suspenders for CLI authorization.
     _sudo usermod -aG tailscale "$target_user" 2>/dev/null || true
     _sudo tailscale set --operator="$target_user"
-    configure_sway_autostart 'tailscale systray' true
+    sway_autostart_singleton 'tailscale systray'
     # accept-dns and accept-routes require an authenticated session; moved to notes.
 }
 
@@ -621,7 +607,7 @@ setup_timeshift() {
 setup_ambient_light_sensor() {
     aur_install iio-sensor-proxy clight
     system_systemctl enable clightd
-    configure_sway_autostart 'clight'
+    sway_autostart 'clight'
     ls /sys/bus/iio/devices/*/in_illuminance* || true
 }
 
