@@ -94,7 +94,7 @@ HAS_LID_EVENTS=true        # kernel input events for lid (e.g. Lid Switch)
 HAS_POWERBUTTON_EVENTS=true  # events reach the UI (not grabbed by logind)
 HAS_AVS_AUDIO=false     # run chromebook-linux-audio AVS setup
 HAS_CROS_FKEYS=false     # install cros-keyboard-map
-AMBIENT_LIGHT_SENSOR=false # install iio-sensor-proxy + clight, enable clightd
+HAS_AMBIENT_LIGHT_SENSOR=false # install iio-sensor-proxy + clight, enable clightd
 KBD_BACKLIGHT=false        # auto-detect keyboard backlight and add Sway bindings
 NEEDS_MBPFAN=false         # install + enable mbpfan
 HAS_FACETIMEHD=false       # install facetimehd-dkms (FaceTime HD webcam)
@@ -114,7 +114,7 @@ report_capabilities() {
         printf "$fmt" "HAS_POWERBUTTON_EVENTS=$HAS_POWERBUTTON_EVENTS" "events reach the UI (not grabbed by logind)"
         printf "$fmt" "HAS_CROS_FKEYS=$HAS_CROS_FKEYS"         "cros-keyboard-map"
         printf "$fmt" "HAS_AVS_AUDIO=$HAS_AVS_AUDIO"         "chromebook-linux-audio AVS setup"
-        printf "$fmt" "AMBIENT_LIGHT_SENSOR=$AMBIENT_LIGHT_SENSOR" "iio-sensor-proxy + clight"
+        printf "$fmt" "HAS_AMBIENT_LIGHT_SENSOR=$HAS_AMBIENT_LIGHT_SENSOR" "iio-sensor-proxy + clight"
         printf "$fmt" "KBD_BACKLIGHT=$KBD_BACKLIGHT"               "keyboard backlight auto-setup"
         printf "$fmt" "NEEDS_MBPFAN=$NEEDS_MBPFAN"                 "mbpfan Mac fan control"
         printf "$fmt" "HAS_FACETIMEHD=$HAS_FACETIMEHD"             "facetimehd-dkms"
@@ -172,10 +172,10 @@ probe_cros_ec() {
     fi
 }
 
-# AMBIENT_LIGHT_SENSOR: IIO illuminance sensor visible in sysfs.
+# HAS_AMBIENT_LIGHT_SENSOR: IIO illuminance sensor visible in sysfs.
 probe_ambient_light_sensor() {
     ls "${PROBE_ROOT}"/sys/bus/iio/devices/*/in_illuminance* 2>/dev/null \
-        | grep -q . && AMBIENT_LIGHT_SENSOR=true || true
+        | grep -q . && HAS_AMBIENT_LIGHT_SENSOR=true || true
 }
 
 # KBD_BACKLIGHT: keyboard backlight LED device in sysfs.
@@ -590,7 +590,7 @@ setup_mac_fan() {
 }
 
 setup_mac_light_sensors() {
-    # clight is installed + started in the AMBIENT_LIGHT_SENSOR block above (iio-sensor-proxy + clightd).
+    # clight is installed + started in the HAS_AMBIENT_LIGHT_SENSOR block above (iio-sensor-proxy + clightd).
     # Without a floor, clight maps a dark room to 0% brightness — invisible screen.
     sudo mkdir -p /etc/clight/modules.conf.d
     sudo tee /etc/clight/modules.conf.d/sensor.conf > /dev/null << 'EOF'
@@ -1165,7 +1165,7 @@ EOF
 
     # XXX clight disabled pending investigation of screen-blanking on MBA7,1.
     # When re-enabling: verify dimmer module key names before adding dimmer.conf.
-    # if $AMBIENT_LIGHT_SENSOR; then
+    # if $HAS_AMBIENT_LIGHT_SENSOR; then
     #     run_setup_step setup_ambient_light_sensor \
     #         "=== Phase 3: ambient light sensor ===" \
     #         "Enable ambient light sensor (iio-sensor-proxy + clightd)."
