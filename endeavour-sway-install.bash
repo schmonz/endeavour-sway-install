@@ -88,6 +88,10 @@ configure_sway_autostart() {
     append_once "$autostart" "$line"
 }
 
+fetch()         { curl -fsSL "$1" -o "$2"; }
+source_fetched() { local t; t=$(mktemp); fetch "$1" "$t"; source "$t"; rm -f "$t"; }
+run_fetched()    { local t; t=$(mktemp); fetch "$1" "$t"; bash "$t" "${@:2}"; rm -f "$t"; }
+
 # Clone URL into DIR only if DIR doesn't already exist.
 clone_if_missing() { local url="$1" dir="$2"; [[ -d "$dir" ]] || git clone "$url" "$dir"; }
 
@@ -101,7 +105,7 @@ _source_machine_caps() {
     if [[ -f "$mc" ]]; then
         source "$mc"
     else
-        source <(curl -fsSL "$MACHINE_CAPS_URL")
+        source_fetched "$MACHINE_CAPS_URL"
     fi
 }
 _source_machine_caps
@@ -388,7 +392,7 @@ install_lid_handler() {
     if [[ -f "$src" ]]; then
         cp "$src" "$handler"
     else
-        curl -fsSL "$SWAY_LID_HANDLER_URL" -o "$handler"
+        fetch "$SWAY_LID_HANDLER_URL" "$handler"
     fi
     chmod +x "$handler"
 
@@ -619,10 +623,10 @@ install_firstboot_service() {
         cp "${src}/endeavour-run-phase3.bash" "$PHASE3_RUNNER_DEST"
     else
         # Piped via curl | bash — $0 is not a real file; fetch the scripts directly.
-        curl -fsSL "$SELF_URL"               -o "$INSTALL_SCRIPT_DEST"
-        curl -fsSL "$MACHINE_CAPS_URL"       -o "$MACHINE_CAPS_DEST"
-        curl -fsSL "$SWAY_LID_HANDLER_URL"   -o "$SWAY_LID_HANDLER_DEST"
-        curl -fsSL "$PHASE3_RUNNER_URL"      -o "$PHASE3_RUNNER_DEST"
+        fetch "$SELF_URL"             "$INSTALL_SCRIPT_DEST"
+        fetch "$MACHINE_CAPS_URL"     "$MACHINE_CAPS_DEST"
+        fetch "$SWAY_LID_HANDLER_URL" "$SWAY_LID_HANDLER_DEST"
+        fetch "$PHASE3_RUNNER_URL"    "$PHASE3_RUNNER_DEST"
     fi
     chmod +x "$INSTALL_SCRIPT_DEST" "$MACHINE_CAPS_DEST" "$SWAY_LID_HANDLER_DEST" "$PHASE3_RUNNER_DEST"
 
@@ -664,7 +668,7 @@ install_phase3_runner() {
     if [[ -f "$src" ]]; then
         cp "$src" "$runner"
     else
-        curl -fsSL "$PHASE3_RUNNER_URL" -o "$runner"
+        fetch "$PHASE3_RUNNER_URL" "$runner"
     fi
     chmod +x "$runner"
 
@@ -1110,7 +1114,7 @@ main() {
         1)
             if $from_installer; then
                 info "Fetching Sway CE baseline ..."
-                curl -fsSL "$SWAY_CE_URL" | bash -s -- $username
+                run_fetched "$SWAY_CE_URL" "$username"
             fi
             phase1
             ;;
