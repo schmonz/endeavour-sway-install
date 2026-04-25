@@ -112,25 +112,11 @@ _source_machine_caps
 unset -f _source_machine_caps
 
 report_capabilities() {
-    local fmt='  %-34s %s\n'
     local text
     text=$(
         printf "Hardware capability detection (verify these look right for this machine):\n"
-        printf "$fmt" "HAS_RESUME=$HAS_RESUME"                                 "system has working suspend/resume"
-        printf "$fmt" "HAS_LID_EVENTS=$HAS_LID_EVENTS"                         "kernel input events for lid (e.g. Lid Switch)"
-        printf "$fmt" "HAS_POWERBUTTON_EVENTS=$HAS_POWERBUTTON_EVENTS"         "events reach the UI (not grabbed by logind)"
-        printf "$fmt" "HAS_CROS_FKEYS=$HAS_CROS_FKEYS"                         "cros-keyboard-map"
-        printf "$fmt" "HAS_AVS_AUDIO=$HAS_AVS_AUDIO"                           "chromebook-linux-audio AVS setup"
-        printf "$fmt" "HAS_AMBIENT_LIGHT_SENSOR=$HAS_AMBIENT_LIGHT_SENSOR"     "iio-sensor-proxy + clight"
-        printf "$fmt" "HAS_KBD_BACKLIGHT=$HAS_KBD_BACKLIGHT"                   "keyboard backlight auto-setup"
-        printf "$fmt" "HAS_APPLESMC=$HAS_APPLESMC"                             "mbpfan Mac fan control"
-        printf "$fmt" "HAS_FACETIMEHD=$HAS_FACETIMEHD"                         "facetimehd-dkms"
-        printf "$fmt" "HAS_PHANTOM_SECOND_DISPLAY=$HAS_PHANTOM_SECOND_DISPLAY" "phantom second display"
-        printf "$fmt" "HAS_PLENTY_OF_RAM=$HAS_PLENTY_OF_RAM"                   "skip zswap"
-        printf "$fmt" "HAS_IR_RECEIVER=$HAS_IR_RECEIVER"                       "LIRC infrared"
-        printf "$fmt" "HAS_THINKPAD_HARDWARE=$HAS_THINKPAD_HARDWARE"           "ThinkPad smart card/buttons/fingerprint"
-        printf "$fmt" "HAS_GL_CAPABLE_GPU=$HAS_GL_CAPABLE_GPU"                 "GPU handles modern OpenGL"
-        printf "If any flag looks wrong, improve its probe in detect_machine_capabilities().\n"
+        report_machine_caps
+        printf "If any flag looks wrong, improve its probe in machine-caps.bash.\n"
     )
     info "$text"
     [[ $EUID -ne 0 ]] || echo "$text" >> "$WARNINGS_FILE"

@@ -2,9 +2,8 @@
 #
 # Detect hardware capabilities and emit KEY=value lines for eval by the caller.
 #
-# Usage (from another script):
+# Usage
 #   eval "$(curl -fsSL "${MACHINE_CAPS_URL}"| bash)"
-# Usage (for testing): source with SOURCED_FOR_TESTING=1 to load only function definitions.
 
 set -euo pipefail
 
@@ -184,20 +183,42 @@ machine_caps_main() {
     probe_has_thinkpad_hardware      "$vendor" "$product" "$version"
     probe_has_gl_capable_gpu         "$lspci_out"
 
-    printf 'HAS_RESUME=%s\n'                 "$HAS_RESUME"
-    printf 'HAS_LID_EVENTS=%s\n'             "$HAS_LID_EVENTS"
-    printf 'HAS_POWERBUTTON_EVENTS=%s\n'     "$HAS_POWERBUTTON_EVENTS"
-    printf 'HAS_AVS_AUDIO=%s\n'              "$HAS_AVS_AUDIO"
-    printf 'HAS_CROS_FKEYS=%s\n'             "$HAS_CROS_FKEYS"
-    printf 'HAS_AMBIENT_LIGHT_SENSOR=%s\n'   "$HAS_AMBIENT_LIGHT_SENSOR"
-    printf 'HAS_KBD_BACKLIGHT=%s\n'          "$HAS_KBD_BACKLIGHT"
-    printf 'HAS_APPLESMC=%s\n'               "$HAS_APPLESMC"
-    printf 'HAS_FACETIMEHD=%s\n'             "$HAS_FACETIMEHD"
-    printf 'HAS_PHANTOM_SECOND_DISPLAY=%s\n' "$HAS_PHANTOM_SECOND_DISPLAY"
-    printf 'HAS_PLENTY_OF_RAM=%s\n'          "$HAS_PLENTY_OF_RAM"
-    printf 'HAS_IR_RECEIVER=%s\n'            "$HAS_IR_RECEIVER"
-    printf 'HAS_THINKPAD_HARDWARE=%s\n'      "$HAS_THINKPAD_HARDWARE"
-    printf 'HAS_GL_CAPABLE_GPU=%s\n'         "$HAS_GL_CAPABLE_GPU"
+    if [[ "${1:-}" == "--verbose" ]]; then
+        report_machine_caps
+    else
+        printf 'HAS_RESUME=%s\n'                 "$HAS_RESUME"
+        printf 'HAS_LID_EVENTS=%s\n'             "$HAS_LID_EVENTS"
+        printf 'HAS_POWERBUTTON_EVENTS=%s\n'     "$HAS_POWERBUTTON_EVENTS"
+        printf 'HAS_AVS_AUDIO=%s\n'              "$HAS_AVS_AUDIO"
+        printf 'HAS_CROS_FKEYS=%s\n'             "$HAS_CROS_FKEYS"
+        printf 'HAS_AMBIENT_LIGHT_SENSOR=%s\n'   "$HAS_AMBIENT_LIGHT_SENSOR"
+        printf 'HAS_KBD_BACKLIGHT=%s\n'          "$HAS_KBD_BACKLIGHT"
+        printf 'HAS_APPLESMC=%s\n'               "$HAS_APPLESMC"
+        printf 'HAS_FACETIMEHD=%s\n'             "$HAS_FACETIMEHD"
+        printf 'HAS_PHANTOM_SECOND_DISPLAY=%s\n' "$HAS_PHANTOM_SECOND_DISPLAY"
+        printf 'HAS_PLENTY_OF_RAM=%s\n'          "$HAS_PLENTY_OF_RAM"
+        printf 'HAS_IR_RECEIVER=%s\n'            "$HAS_IR_RECEIVER"
+        printf 'HAS_THINKPAD_HARDWARE=%s\n'      "$HAS_THINKPAD_HARDWARE"
+        printf 'HAS_GL_CAPABLE_GPU=%s\n'         "$HAS_GL_CAPABLE_GPU"
+    fi
 }
 
-[[ "${BASH_SOURCE[0]}" == "$0" ]] && machine_caps_main
+report_machine_caps() {
+    local fmt='  %-34s %s\n'
+    printf "$fmt" "HAS_RESUME=$HAS_RESUME"                                 "system has working suspend/resume"
+    printf "$fmt" "HAS_LID_EVENTS=$HAS_LID_EVENTS"                         "kernel input events for lid (e.g. Lid Switch)"
+    printf "$fmt" "HAS_POWERBUTTON_EVENTS=$HAS_POWERBUTTON_EVENTS"         "events reach the UI (not grabbed by logind)"
+    printf "$fmt" "HAS_AVS_AUDIO=$HAS_AVS_AUDIO"                           "chromebook-linux-audio AVS setup"
+    printf "$fmt" "HAS_CROS_FKEYS=$HAS_CROS_FKEYS"                         "cros-keyboard-map"
+    printf "$fmt" "HAS_AMBIENT_LIGHT_SENSOR=$HAS_AMBIENT_LIGHT_SENSOR"     "iio-sensor-proxy + clight"
+    printf "$fmt" "HAS_KBD_BACKLIGHT=$HAS_KBD_BACKLIGHT"                   "keyboard backlight auto-setup"
+    printf "$fmt" "HAS_APPLESMC=$HAS_APPLESMC"                             "mbpfan Mac fan control"
+    printf "$fmt" "HAS_FACETIMEHD=$HAS_FACETIMEHD"                         "facetimehd-dkms"
+    printf "$fmt" "HAS_PHANTOM_SECOND_DISPLAY=$HAS_PHANTOM_SECOND_DISPLAY" "phantom second display"
+    printf "$fmt" "HAS_PLENTY_OF_RAM=$HAS_PLENTY_OF_RAM"                   "skip zswap"
+    printf "$fmt" "HAS_IR_RECEIVER=$HAS_IR_RECEIVER"                       "LIRC infrared"
+    printf "$fmt" "HAS_THINKPAD_HARDWARE=$HAS_THINKPAD_HARDWARE"           "ThinkPad smart card/buttons/fingerprint"
+    printf "$fmt" "HAS_GL_CAPABLE_GPU=$HAS_GL_CAPABLE_GPU"                 "GPU handles modern OpenGL"
+}
+
+[[ "${BASH_SOURCE[0]}" == "$0" ]] && machine_caps_main "$@"
