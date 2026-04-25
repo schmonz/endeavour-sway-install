@@ -46,13 +46,10 @@ reset_flags
 # Command-output probes accept pre-collected output as their first argument.
 # Tests set PROBE_ROOT to a fixture directory and pass synthetic strings.
 
-# HAS_RESUME: MrChromebox firmware = Chromebook with broken suspend/resume.
 probe_has_resume() {          # arg: bios-version string
     [[ "${1:-}" == MrChromebox* ]] && HAS_RESUME=false || true
 }
 
-# HAS_LID_EVENTS: kernel input events for lid are reliable.
-# Chromebook firmware handles lid events via EC; "Lid Switch" node exists but never fires.
 probe_has_lid_events() {
     [[ -f "${PROBE_ROOT}/proc/acpi/button/lid/LID0/state" ]] || return 0
     [[ -e "${PROBE_ROOT}/dev/cros_ec" ]] && { HAS_LID_EVENTS=false; return; }
@@ -71,7 +68,6 @@ probe_has_powerbutton_events() { # args: LNXPWRBN udevadm output, has_non_lnxpwr
     grep -q "power-switch" <<< "${1:-}" && HAS_POWERBUTTON_EVENTS=false || true
 }
 
-# HAS_CROS_FKEYS + HAS_AVS_AUDIO: Chrome EC present.
 probe_has_cros_ec() {
     if [[ -d "${PROBE_ROOT}/sys/class/chromeos/cros_ec" ]] \
        || [[ -e "${PROBE_ROOT}/dev/cros_ec" ]]; then
@@ -80,44 +76,37 @@ probe_has_cros_ec() {
     fi
 }
 
-# HAS_AMBIENT_LIGHT_SENSOR: IIO illuminance sensor visible in sysfs.
 probe_has_ambient_light_sensor() {
     ls "${PROBE_ROOT}"/sys/bus/iio/devices/*/in_illuminance* 2>/dev/null \
         | grep -q . && HAS_AMBIENT_LIGHT_SENSOR=true || true
 }
 
-# HAS_KBD_BACKLIGHT: keyboard backlight LED device in sysfs.
 probe_has_kbd_backlight() {
     ls "${PROBE_ROOT}/sys/class/leds/" 2>/dev/null \
         | grep -qiE "kbd|keyboard" && HAS_KBD_BACKLIGHT=true || true
 }
 
-# HAS_APPLESMC: Apple MacBook — applesmc present, needs mbpfan for fan control.
 probe_has_applesmc() {    # args: vendor, product
     [[ "${1:-}" == "Apple Inc." ]] \
         && [[ "${2:-}" == MacBook* ]] \
         && HAS_APPLESMC=true || true
 }
 
-# HAS_FACETIMEHD: Broadcom FaceTime HD camera (PCIe ID 14e4:1570).
 probe_has_facetimehd() {      # arg: lspci -n output
     grep -q "14e4:1570" <<< "${1:-}" && HAS_FACETIMEHD=true || true
 }
 
-# HAS_PHANTOM_SECOND_DISPLAY: second internal LVDS output enumerated by DRM.
 # Requires GPU driver to be loaded — may be false during phase 1 chroot.
 probe_has_phantom_second_display() {
     ls "${PROBE_ROOT}/sys/class/drm/" 2>/dev/null \
         | grep -q "LVDS-2" && HAS_PHANTOM_SECOND_DISPLAY=true || true
 }
 
-# HAS_PLENTY_OF_RAM: total RAM at least 8 GiB; machines with less get zswap.
 probe_has_plenty_of_ram() {   # arg: MemTotal value in kB
     local kb="${1:-0}"
     (( kb >= 8*1024*1024 )) && HAS_PLENTY_OF_RAM=true || true
 }
 
-# HAS_IR_RECEIVER: LIRC character device present.
 probe_has_ir_receiver() {
     ls "${PROBE_ROOT}"/dev/lirc* 2>/dev/null | grep -q . && HAS_IR_RECEIVER=true || true
 }
