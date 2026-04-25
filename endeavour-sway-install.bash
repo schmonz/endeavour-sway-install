@@ -584,15 +584,15 @@ setup_cros_fkeys() {
 
 setup_mac_fan() {
     aur_install mbpfan
-    sudo cp /usr/lib/systemd/system/mbpfan.service /etc/systemd/system/
+    _sudo cp /usr/lib/systemd/system/mbpfan.service /etc/systemd/system/
     system_systemctl enable mbpfan.service
 }
 
 setup_mac_light_sensors() {
     # clight is installed + started in the HAS_AMBIENT_LIGHT_SENSOR block above (iio-sensor-proxy + clightd).
     # Without a floor, clight maps a dark room to 0% brightness — invisible screen.
-    sudo mkdir -p /etc/clight/modules.conf.d
-    sudo tee /etc/clight/modules.conf.d/sensor.conf > /dev/null << 'EOF'
+    _sudo mkdir -p /etc/clight/modules.conf.d
+    _sudo tee /etc/clight/modules.conf.d/sensor.conf > /dev/null << 'EOF'
 // Minimum brightness floor: dark room -> 10% screen, not 0%.
 // Raise toward 0.15-0.20 if 10% still feels too dark.
 ac_regression_points = (0.0, 0.10, 0.20, 0.40, 0.60, 0.80, 1.0);
@@ -625,21 +625,23 @@ add_grub_param() {
     local var="$1" check="$2" params="$3"
     local new_content
     new_content=$(transform_grub_param "$var" "$check" "$params" < /etc/default/grub)
-    echo "$new_content" | sudo tee /etc/default/grub > /dev/null
+    echo "$new_content" | _sudo tee /etc/default/grub > /dev/null
 }
+
+rebuild_grub() { _sudo grub-mkconfig -o /boot/grub/grub.cfg; }
 
 setup_nvidia_display() {
     # For MacBookPro5,2 so the display manager comes up on the real screen.
     # Targets GRUB_CMDLINE_LINUX (not _DEFAULT) so recovery boots also get the fix.
     add_grub_param GRUB_CMDLINE_LINUX video=LVDS-2:d video=LVDS-2:d
-    sudo grub-mkconfig -o /boot/grub/grub.cfg
+    rebuild_grub
 }
 
 setup_zswap() {
     # Targets GRUB_CMDLINE_LINUX_DEFAULT — performance optimization, not needed in recovery.
     add_grub_param GRUB_CMDLINE_LINUX_DEFAULT zswap.enabled=1 \
         "zswap.enabled=1 zswap.compressor=zstd zswap.zpool=z3fold zswap.max_pool_percent=20"
-    sudo grub-mkconfig -o /boot/grub/grub.cfg
+    rebuild_grub
 }
 
 setup_web_browser() {
