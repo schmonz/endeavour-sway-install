@@ -646,6 +646,45 @@ setup_zswap() {
     sudo grub-mkconfig -o /boot/grub/grub.cfg
 }
 
+setup_web_browser() {
+    append_once ~/.config/sway/config.d/application_defaults \
+        'for_window [app_id="helium"] inhibit_idle fullscreen'
+    sed -i 's|exec firefox|exec xdg-open https://|g' ~/.config/sway/config.d/default
+
+    local wconf="$HOME/.config/EOS-greeter.conf"
+    if grep -q "^Greeter=" "$wconf" 2>/dev/null; then
+        sed -i 's|^Greeter=.*|Greeter=disable|' "$wconf"
+    else
+        printf 'Greeter=disable\nLastCheck=0\nOnceDaily=no\n' > "$wconf"
+    fi
+
+    mkdir -p ~/.local/share/applications/kde4
+    printf '[Desktop Entry]\nHidden=true\n' > ~/.local/share/applications/chromium.desktop
+    printf '[Desktop Entry]\nHidden=true\n' > ~/.local/share/applications/kde4/webapp-manager.desktop
+
+    mkdir -p ~/.config
+    cat > ~/.config/mimeapps.list << 'EOF'
+[Default Applications]
+x-scheme-handler/http=helium.desktop
+x-scheme-handler/https=helium.desktop
+text/html=helium.desktop
+application/xhtml+xml=helium.desktop
+EOF
+
+    local _prefs='{"browser":{"check_default_browser":false},"session":{"restore_on_startup":1}}'
+    local _init='{"browser":{"check_default_browser":false},"distribution":{"skip_first_run_ui":true,"suppress_first_run_bubble":true,"show_welcome_page":false},"session":{"restore_on_startup":1}}'
+    mkdir -p ~/.config/net.imput.helium/Default ~/.config/chromium/Default
+    printf '%s\n' "$_init" \
+        | tee ~/.config/net.imput.helium/initial_preferences \
+              ~/.config/chromium/initial_preferences > /dev/null
+    printf '%s\n' "$_prefs" \
+        | tee ~/.config/net.imput.helium/Default/Preferences \
+              ~/.config/chromium/Default/Preferences > /dev/null
+
+    printf -- '--password-store=basic\n' > ~/.config/helium-browser-flags.conf
+    printf -- '--password-store=basic\n' > ~/.config/chromium-flags.conf
+}
+
 setup_clipboard_helpers() {
     mkdir -p /usr/local/bin
     printf '#!/bin/sh\nexec wl-copy "$@"\n' > /usr/local/bin/pbcopy
@@ -1078,52 +1117,7 @@ phase3() {
         "Enable Timeshift."
 
     info "=== Phase 3: web browser ==="
-    append_once ~/.config/sway/config.d/application_defaults \
-        'for_window [app_id="helium"] inhibit_idle fullscreen'
-    sed -i 's|exec firefox|exec xdg-open https://|g' ~/.config/sway/config.d/default
-
-    # Mimic the user clicking "don't open at login" in EOS Welcome.
-    local wconf="$HOME/.config/EOS-greeter.conf"
-    if grep -q "^Greeter=" "$wconf" 2>/dev/null; then
-        sed -i 's|^Greeter=.*|Greeter=disable|' "$wconf"
-    else
-        printf 'Greeter=disable\nLastCheck=0\nOnceDaily=no\n' > "$wconf"
-    fi
-
-    mkdir -p ~/.local/share/applications/kde4
-    printf '[Desktop Entry]\nHidden=true\n' > ~/.local/share/applications/chromium.desktop
-    printf '[Desktop Entry]\nHidden=true\n' > ~/.local/share/applications/kde4/webapp-manager.desktop
-
-    # Set Helium as default browser via XDG mime associations.
-    mkdir -p ~/.config
-    cat > ~/.config/mimeapps.list << 'EOF'
-[Default Applications]
-x-scheme-handler/http=helium.desktop
-x-scheme-handler/https=helium.desktop
-text/html=helium.desktop
-application/xhtml+xml=helium.desktop
-EOF
-
-    # Suppress first-run wizard and restore session on startup.
-    # initial_preferences seeds preferences if Default/Preferences doesn't exist yet.
-    # Writing Default/Preferences directly is a belt-and-suspenders fallback: its
-    # presence alone signals "already configured" and skips the first-run wizard.
-    local _prefs='{"browser":{"check_default_browser":false},"session":{"restore_on_startup":1}}'
-    local _init='{"browser":{"check_default_browser":false},"distribution":{"skip_first_run_ui":true,"suppress_first_run_bubble":true,"show_welcome_page":false},"session":{"restore_on_startup":1}}'
-    mkdir -p ~/.config/net.imput.helium/Default ~/.config/chromium/Default
-    printf '%s\n' "$_init" \
-        | tee ~/.config/net.imput.helium/initial_preferences \
-              ~/.config/chromium/initial_preferences > /dev/null
-    printf '%s\n' "$_prefs" \
-        | tee ~/.config/net.imput.helium/Default/Preferences \
-              ~/.config/chromium/Default/Preferences > /dev/null
-
-    # Use basic password store so neither browser prompts for a keyring
-    # password. Actual credentials live in 1Password; this only affects
-    # Chromium's own Safe Storage key.
-    printf -- '--password-store=basic\n' > ~/.config/helium-browser-flags.conf
-    printf -- '--password-store=basic\n' > ~/.config/chromium-flags.conf
-
+    setup_web_browser
 
     # Geolocation (disabled):
     # sudo pacman -S --noconfirm xdg-desktop-portal-gtk
