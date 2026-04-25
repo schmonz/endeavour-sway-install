@@ -33,7 +33,6 @@ accumulate_warning() {
     [[ $EUID -eq 0 ]] && echo "$*" >> "$WARNINGS_FILE" || true
 }
 
-# Runs as root in phases 1 and 2; uses sudo in phase 3 (normal user).
 _sudo() {
     if [[ $EUID -eq 0 ]]; then
         "$@"
@@ -120,7 +119,6 @@ detect_machine_capabilities() {
     report_capabilities
 }
 
-# First real user account (uid 1000–65533); used by phases 1 and 2.
 detect_target_user() {
     getent passwd | awk -F: '$3 >= 1000 && $3 < 65534 { print $1; exit }'
 }
@@ -270,27 +268,26 @@ add_sway_poweroff_binding() {
         return
     fi
 
-    # Find the file that defines $powermenu; fall back to config.d/default.
-    local target
-    target=$(grep -rlE '^\s*set\s+\$powermenu\b' "$sway_conf_dir" 2>/dev/null | head -1 || true)
-    if [[ -z "$target" ]]; then
-        target="${sway_conf_dir}/config.d/default"
-        warn "No \$powermenu definition found; appending to ${target}. Edit exec command if needed."
+    local powermenu_conf
+    powermenu_conf=$(grep -rlE '^\s*set\s+\$powermenu\b' "$sway_conf_dir" 2>/dev/null | head -1 || true)
+    if [[ -z "$powermenu_conf" ]]; then
+        powermenu_conf="${sway_conf_dir}/config.d/default"
+        warn "No \$powermenu definition found; appending to ${powermenu_conf}. Edit exec command if needed."
     fi
-    if [[ ! -f "$target" ]]; then
-        accumulate_warning "${target} does not exist — XF86PowerOff binding skipped."
+    if [[ ! -f "$powermenu_conf" ]]; then
+        accumulate_warning "${powermenu_conf} does not exist — XF86PowerOff binding skipped."
         return
     fi
 
-    # Check all config files, not just $target, for an existing binding.
+    # Binding may already exist in a different config.d file than powermenu_conf.
     if grep -rlE '^\s*bindsym\s+XF86PowerOff\b' "$sway_conf_dir" 2>/dev/null | grep -q .; then
         info "XF86PowerOff binding already present — skipping."
         return
     fi
 
-    info "Adding XF86PowerOff binding to ${target} ..."
-    printf '\nbindsym XF86PowerOff exec $powermenu\n' >> "$target"
-    chown "${sway_user}:" "$target"
+    info "Adding XF86PowerOff binding to ${powermenu_conf} ..."
+    printf '\nbindsym XF86PowerOff exec $powermenu\n' >> "$powermenu_conf"
+    chown "${sway_user}:" "$powermenu_conf"
 }
 
 # ── Swayidle ──────────────────────────────────────────────────────────────────
@@ -714,7 +711,6 @@ install_phase3_runner() {
     append_once "$bash_profile" "$runner"
 }
 
-# Show MSG, run FUNC (with any extra args), then commit to etckeeper.
 run_setup_step() {
     local func="$1" msg="$2" commit_msg="$3"
     shift 3
