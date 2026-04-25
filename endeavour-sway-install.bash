@@ -92,7 +92,6 @@ clone_if_missing() { local url="$1" dir="$2"; [[ -d "$dir" ]] || git clone "$url
 HAS_RESUME=true            # system has working suspend/resume
 HAS_LID_EVENTS=true        # kernel input events for lid (e.g. Lid Switch)
 HAS_POWERBUTTON_EVENTS=true  # events reach the UI (not grabbed by logind)
-SWAY_POWER_KEY=false       # add XF86PowerOff bindsym in Sway config
 CHROMEBOOK_AUDIO=false     # run chromebook-linux-audio AVS setup
 CHROMEBOOK_FKEYS=false     # install cros-keyboard-map
 AMBIENT_LIGHT_SENSOR=false # install iio-sensor-proxy + clight, enable clightd
@@ -113,7 +112,6 @@ report_capabilities() {
         printf "$fmt" "HAS_RESUME=$HAS_RESUME"                     "system has working suspend/resume"
         printf "$fmt" "HAS_LID_EVENTS=$HAS_LID_EVENTS"             "kernel input events for lid (e.g. Lid Switch)"
         printf "$fmt" "HAS_POWERBUTTON_EVENTS=$HAS_POWERBUTTON_EVENTS" "events reach the UI (not grabbed by logind)"
-        printf "$fmt" "SWAY_POWER_KEY=$SWAY_POWER_KEY"             "XF86PowerOff bindsym in Sway"
         printf "$fmt" "CHROMEBOOK_FKEYS=$CHROMEBOOK_FKEYS"         "cros-keyboard-map"
         printf "$fmt" "CHROMEBOOK_AUDIO=$CHROMEBOOK_AUDIO"         "chromebook-linux-audio AVS setup"
         printf "$fmt" "AMBIENT_LIGHT_SENSOR=$AMBIENT_LIGHT_SENSOR" "iio-sensor-proxy + clight"
@@ -163,15 +161,6 @@ probe_lid_events() {
 probe_powerbutton_events() { # args: LNXPWRBN udevadm output, has_non_lnxpwrbn_power_button
     ${2:-false} && return 0
     grep -q "power-switch" <<< "${1:-}" && HAS_POWERBUTTON_EVENTS=false || true
-}
-
-# SWAY_POWER_KEY: any input device named "Power Button" is present.
-probe_sway_power_key() {
-    local input_dir
-    for input_dir in "${PROBE_ROOT}"/sys/class/input/input*/; do
-        [[ "$(cat "${input_dir}name" 2>/dev/null)" == "Power Button" ]] \
-            && { SWAY_POWER_KEY=true; return; }
-    done; true
 }
 
 # CHROMEBOOK_FKEYS + CHROMEBOOK_AUDIO: Chrome EC present = Chromebook hardware.
@@ -276,7 +265,6 @@ detect_machine_capabilities() {
     probe_has_resume            "$bios"
     probe_lid_events
     probe_powerbutton_events  "$udev_power_out" "$has_non_lnx_power_button"
-    probe_sway_power_key
     probe_chromebook
     probe_ambient_light_sensor
     probe_kbd_backlight
@@ -1220,7 +1208,7 @@ EOF
 
     $HAS_IR_RECEIVER   && setup_infrared_receiver
     $THINKPAD_GOODIES  && setup_thinkpad_goodies
-    $SWAY_POWER_KEY    && add_sway_poweroff_binding "$target_user"
+    add_sway_poweroff_binding "$target_user"
 
     $HAS_POWERBUTTON_EVENTS || \
         info "Note: the udev grab release requires a re-login or reboot to take full effect."
