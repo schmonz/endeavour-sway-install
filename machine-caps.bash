@@ -141,11 +141,9 @@ probe_has_gl_capable_gpu() {  # arg: lspci -n output
 
 # ── Capability orchestrator ───────────────────────────────────────────────────
 
-machine_caps_main() {
+run_machine_cap_probes() {
     local vendor product version bios lspci_out total_mem_kb
     local input_dir name phys udev_power_out evdir
-
-    reset_flags
 
     vendor=$(_sudo dmidecode -s system-manufacturer 2>/dev/null || true)
     product=$(_sudo dmidecode -s system-product-name 2>/dev/null || true)
@@ -182,6 +180,11 @@ machine_caps_main() {
     probe_has_ir_receiver
     probe_has_thinkpad_hardware      "$vendor" "$product" "$version"
     probe_has_gl_capable_gpu         "$lspci_out"
+}
+
+machine_caps_main() {
+    reset_flags
+    run_machine_cap_probes
 
     if [[ "${1:-}" == "--verbose" ]]; then
         report_machine_caps

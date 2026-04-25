@@ -122,51 +122,8 @@ report_capabilities() {
     [[ $EUID -ne 0 ]] || echo "$text" >> "$WARNINGS_FILE"
 }
 
-# ── Capability orchestrator ───────────────────────────────────────────────────
-
 detect_machine_capabilities() {
-    local vendor product version bios lspci_out total_mem_kb
-    local input_dir name phys udev_power_out evdir
-
-    vendor=$(_sudo dmidecode -s system-manufacturer 2>/dev/null || true)
-    product=$(_sudo dmidecode -s system-product-name 2>/dev/null || true)
-    version=$(_sudo dmidecode -s system-version 2>/dev/null || true)
-    bios=$(_sudo dmidecode -s bios-version 2>/dev/null || true)
-    lspci_out=$(_sudo lspci -n 2>/dev/null || true)
-    total_mem_kb=$(awk '/MemTotal/{print $2}' /proc/meminfo 2>/dev/null || echo 0)
-
-    # Collect udevadm output for LNXPWRBN power-button input devices, and note
-    # whether any "Power Button" device has a non-LNXPWRBN phys (e.g. Apple
-    # firmware button), which bypasses logind's exclusive grab.
-    udev_power_out=""
-    local has_non_lnx_power_button=false
-    for input_dir in /sys/class/input/input*/; do
-        name=$(cat "${input_dir}name" 2>/dev/null || true)
-        phys=$(cat "${input_dir}phys" 2>/dev/null || true)
-        [[ "$name" == "Power Button" ]] || continue
-        if [[ "$phys" == *LNXPWRBN* ]]; then
-            for evdir in "${input_dir}"event*/; do
-                udev_power_out+=$(_sudo udevadm info "/dev/input/$(basename "$evdir")" 2>/dev/null || true)
-            done
-        else
-            has_non_lnx_power_button=true
-        fi
-    done
-
-    probe_has_resume                 "$bios"
-    probe_has_lid_events
-    probe_has_powerbutton_events     "$udev_power_out" "$has_non_lnx_power_button"
-    probe_has_cros_ec
-    probe_has_ambient_light_sensor
-    probe_has_kbd_backlight
-    probe_has_applesmc               "$vendor" "$product"
-    probe_has_facetimehd             "$lspci_out"
-    probe_has_phantom_second_display
-    probe_has_plenty_of_ram          "$total_mem_kb"
-    probe_has_ir_receiver
-    probe_has_thinkpad_hardware      "$vendor" "$product" "$version"
-    probe_has_gl_capable_gpu         "$lspci_out"
-
+    run_machine_cap_probes
     report_capabilities
 }
 
