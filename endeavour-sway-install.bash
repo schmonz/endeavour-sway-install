@@ -13,9 +13,11 @@ set -euo pipefail
 WARNINGS_FILE="/root/endeavour-setup-warnings.txt"
 INSTALL_SCRIPT_DEST="/usr/local/bin/endeavour-sway-install"
 MACHINE_CAPS_DEST="/usr/local/bin/machine-caps"
+SWAY_LID_HANDLER_DEST="/usr/local/bin/sway-lid-handler"
 FIRSTBOOT_SERVICE="/etc/systemd/system/endeavour-sway-firstboot.service"
 SELF_URL="https://raw.githubusercontent.com/schmonz/endeavour-sway-install/main/endeavour-sway-install.bash"
 MACHINE_CAPS_URL="https://raw.githubusercontent.com/schmonz/endeavour-sway-install/main/machine-caps.bash"
+SWAY_LID_HANDLER_URL="https://raw.githubusercontent.com/schmonz/endeavour-sway-install/main/sway-lid-handler.bash"
 SWAY_CE_URL="https://raw.githubusercontent.com/EndeavourOS-Community-Editions/sway/main/setup_sway_isomode.bash"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -90,10 +92,12 @@ clone_if_missing() { local url="$1" dir="$2"; [[ -d "$dir" ]] || git clone "$url
 # ── Machine capabilities ──────────────────────────────────────────────────────
 
 _source_machine_caps() {
-    local dir
+    local dir mc
     dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)" || dir=""
-    if [[ -f "${dir}/machine-caps.bash" ]]; then
-        source "${dir}/machine-caps.bash"
+    mc="${dir}/machine-caps.bash"
+    [[ -f "$mc" ]] || mc="${dir}/machine-caps"
+    if [[ -f "$mc" ]]; then
+        source "$mc"
     else
         source <(curl -fsSL "$MACHINE_CAPS_URL")
     fi
@@ -375,44 +379,15 @@ install_lid_handler() {
 
     info "Installing ${handler} ..."
     mkdir -p "$(dirname "$handler")"
-    cat > "$handler" << 'SCRIPT'
-#!/bin/bash
-# sway-lid-handler
-#
-# Polls /proc/acpi/button/lid/LID0/state and acts on lid open/close.
-#
-# On this Chromebook hardware the EC handles the lid switch without generating
-# kernel input events (EV_SW SW_LID never fires on /dev/input/event0), so
-# logind and sway/libinput never see lid events. Polling the ACPI sysfs file
-# is the only reliable detection mechanism.
-#
-# Lid close: loginctl lock-session → swayidle lock handler → gtklock + dpms off
-# Lid open:  swaymsg output dpms on  (so the gtklock prompt is visible)
-#
-# Power efficiency: the loop uses only bash builtins (read) and sleep — no
-# forked processes. This matters because process forks are CPU wakeup events
-# that prevent the processor from staying in deep C-states. At 1s intervals
-# the CPU gets one brief wakeup per second from the kernel timer; the rest of
-# the time it can sleep deeply. Using awk or similar external tools instead of
-# read would add a process-spawn wakeup on every iteration for no benefit.
-
-LID_STATE=/proc/acpi/button/lid/LID0/state
-
-read -r _ prev < "$LID_STATE"
-
-while true; do
-    read -r _ cur < "$LID_STATE"
-    if [[ "$cur" != "$prev" ]]; then
-        if [[ "$cur" == "closed" ]]; then
-            loginctl lock-session
-        else
-            swaymsg "output * dpms on"
-        fi
-        prev="$cur"
+    local dir
+    dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)" || dir=""
+    local src="${dir}/sway-lid-handler.bash"
+    [[ -f "$src" ]] || src="${dir}/sway-lid-handler"
+    if [[ -f "$src" ]]; then
+        cp "$src" "$handler"
+    else
+        curl -fsSL "$SWAY_LID_HANDLER_URL" -o "$handler"
     fi
-    sleep 1
-done
-SCRIPT
     chmod +x "$handler"
 
     info "Installing ${service} ..."
@@ -636,12 +611,14 @@ install_firstboot_service() {
     if [[ -f "$0" ]]; then
         cp "$0" "$INSTALL_SCRIPT_DEST"
         cp "$(dirname "$0")/machine-caps.bash" "$MACHINE_CAPS_DEST"
+        cp "$(dirname "$0")/sway-lid-handler.bash" "$SWAY_LID_HANDLER_DEST"
     else
         # Piped via curl | bash — $0 is not a real file; fetch the scripts directly.
-        curl -fsSL "$SELF_URL" -o "$INSTALL_SCRIPT_DEST"
-        curl -fsSL "$MACHINE_CAPS_URL" -o "$MACHINE_CAPS_DEST"
+        curl -fsSL "$SELF_URL"               -o "$INSTALL_SCRIPT_DEST"
+        curl -fsSL "$MACHINE_CAPS_URL"       -o "$MACHINE_CAPS_DEST"
+        curl -fsSL "$SWAY_LID_HANDLER_URL"   -o "$SWAY_LID_HANDLER_DEST"
     fi
-    chmod +x "$INSTALL_SCRIPT_DEST" "$MACHINE_CAPS_DEST"
+    chmod +x "$INSTALL_SCRIPT_DEST" "$MACHINE_CAPS_DEST" "$SWAY_LID_HANDLER_DEST"
 
     cat > "$FIRSTBOOT_SERVICE" << EOF
 [Unit]
