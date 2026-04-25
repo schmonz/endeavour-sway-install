@@ -87,22 +87,25 @@ clone_if_missing() { local url="$1" dir="$2"; [[ -d "$dir" ]] || git clone "$url
 
 # ── Machine capability flags ──────────────────────────────────────────────────
 #
-# detect_machine_capabilities() adjusts these.
+# reset_flags() sets defaults; detect_machine_capabilities() adjusts them.
 
-HAS_RESUME=true            # system has working suspend/resume
-HAS_LID_EVENTS=true        # kernel input events for lid (e.g. Lid Switch)
-HAS_POWERBUTTON_EVENTS=true  # events reach the UI (not grabbed by logind)
-HAS_AVS_AUDIO=false     # run chromebook-linux-audio AVS setup
-HAS_CROS_FKEYS=false     # install cros-keyboard-map
-HAS_AMBIENT_LIGHT_SENSOR=false # install iio-sensor-proxy + clight, enable clightd
-HAS_KBD_BACKLIGHT=false        # auto-detect keyboard backlight and add Sway bindings
-HAS_APPLESMC=false         # install + enable mbpfan
-HAS_FACETIMEHD=false       # install facetimehd-dkms (FaceTime HD webcam)
-HAS_PHANTOM_SECOND_DISPLAY=false # disable phantom second internal display
-HAS_PLENTY_OF_RAM=false    # skip zswap (GRUB_CMDLINE_LINUX_DEFAULT)
-HAS_IR_RECEIVER=false      # set up LIRC infrared receiver
-HAS_THINKPAD_HARDWARE=false # ThinkPad-specific: smart card, buttons, fingerprint
-HAS_GL_CAPABLE_GPU=true    # GPU handles modern OpenGL (false → LIBGL_ALWAYS_SOFTWARE=1)
+reset_flags() {
+    HAS_RESUME=true            # system has working suspend/resume
+    HAS_LID_EVENTS=true        # kernel input events for lid (e.g. Lid Switch)
+    HAS_POWERBUTTON_EVENTS=true  # events reach the UI (not grabbed by logind)
+    HAS_AVS_AUDIO=false     # run chromebook-linux-audio AVS setup
+    HAS_CROS_FKEYS=false     # install cros-keyboard-map
+    HAS_AMBIENT_LIGHT_SENSOR=false # install iio-sensor-proxy + clight, enable clightd
+    HAS_KBD_BACKLIGHT=false        # auto-detect keyboard backlight and add Sway bindings
+    HAS_APPLESMC=false         # install + enable mbpfan
+    HAS_FACETIMEHD=false       # install facetimehd-dkms (FaceTime HD webcam)
+    HAS_PHANTOM_SECOND_DISPLAY=false # disable phantom second internal display
+    HAS_PLENTY_OF_RAM=false    # skip zswap (GRUB_CMDLINE_LINUX_DEFAULT)
+    HAS_IR_RECEIVER=false      # set up LIRC infrared receiver
+    HAS_THINKPAD_HARDWARE=false # ThinkPad-specific: smart card, buttons, fingerprint
+    HAS_GL_CAPABLE_GPU=true    # GPU handles modern OpenGL (false → LIBGL_ALWAYS_SOFTWARE=1)
+}
+reset_flags
 
 report_capabilities() {
     local fmt='  %-34s %s\n'

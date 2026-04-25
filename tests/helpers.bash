@@ -97,19 +97,3 @@ teardown_probe_root() {
     unset PROBE_ROOT
 }
 
-reset_flags() {
-    HAS_RESUME=true
-    HAS_LID_EVENTS=true
-    HAS_POWERBUTTON_EVENTS=true
-    HAS_AVS_AUDIO=false
-    HAS_CROS_FKEYS=false
-    HAS_AMBIENT_LIGHT_SENSOR=false
-    HAS_KBD_BACKLIGHT=false
-    HAS_APPLESMC=false
-    HAS_FACETIMEHD=false
-    HAS_PHANTOM_SECOND_DISPLAY=false
-    HAS_PLENTY_OF_RAM=false
-    HAS_IR_RECEIVER=false
-    HAS_THINKPAD_HARDWARE=false
-    HAS_GL_CAPABLE_GPU=true
-}
