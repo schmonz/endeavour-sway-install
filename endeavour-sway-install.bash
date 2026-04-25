@@ -14,10 +14,12 @@ WARNINGS_FILE="/root/endeavour-setup-warnings.txt"
 INSTALL_SCRIPT_DEST="/usr/local/bin/endeavour-sway-install"
 MACHINE_CAPS_DEST="/usr/local/bin/machine-caps"
 SWAY_LID_HANDLER_DEST="/usr/local/bin/sway-lid-handler"
+PHASE3_RUNNER_DEST="/usr/local/bin/endeavour-run-phase3"
 FIRSTBOOT_SERVICE="/etc/systemd/system/endeavour-sway-firstboot.service"
 SELF_URL="https://raw.githubusercontent.com/schmonz/endeavour-sway-install/main/endeavour-sway-install.bash"
 MACHINE_CAPS_URL="https://raw.githubusercontent.com/schmonz/endeavour-sway-install/main/machine-caps.bash"
 SWAY_LID_HANDLER_URL="https://raw.githubusercontent.com/schmonz/endeavour-sway-install/main/sway-lid-handler.bash"
+PHASE3_RUNNER_URL="https://raw.githubusercontent.com/schmonz/endeavour-sway-install/main/endeavour-run-phase3.bash"
 SWAY_CE_URL="https://raw.githubusercontent.com/EndeavourOS-Community-Editions/sway/main/setup_sway_isomode.bash"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -609,16 +611,20 @@ setup_software_gl() {
 install_firstboot_service() {
     info "Installing ${FIRSTBOOT_SERVICE} ..."
     if [[ -f "$0" ]]; then
-        cp "$0" "$INSTALL_SCRIPT_DEST"
-        cp "$(dirname "$0")/machine-caps.bash" "$MACHINE_CAPS_DEST"
-        cp "$(dirname "$0")/sway-lid-handler.bash" "$SWAY_LID_HANDLER_DEST"
+        local src
+        src="$(dirname "$0")"
+        cp "$0"                              "$INSTALL_SCRIPT_DEST"
+        cp "${src}/machine-caps.bash"        "$MACHINE_CAPS_DEST"
+        cp "${src}/sway-lid-handler.bash"    "$SWAY_LID_HANDLER_DEST"
+        cp "${src}/endeavour-run-phase3.bash" "$PHASE3_RUNNER_DEST"
     else
         # Piped via curl | bash — $0 is not a real file; fetch the scripts directly.
         curl -fsSL "$SELF_URL"               -o "$INSTALL_SCRIPT_DEST"
         curl -fsSL "$MACHINE_CAPS_URL"       -o "$MACHINE_CAPS_DEST"
         curl -fsSL "$SWAY_LID_HANDLER_URL"   -o "$SWAY_LID_HANDLER_DEST"
+        curl -fsSL "$PHASE3_RUNNER_URL"      -o "$PHASE3_RUNNER_DEST"
     fi
-    chmod +x "$INSTALL_SCRIPT_DEST" "$MACHINE_CAPS_DEST" "$SWAY_LID_HANDLER_DEST"
+    chmod +x "$INSTALL_SCRIPT_DEST" "$MACHINE_CAPS_DEST" "$SWAY_LID_HANDLER_DEST" "$PHASE3_RUNNER_DEST"
 
     cat > "$FIRSTBOOT_SERVICE" << EOF
 [Unit]
@@ -649,50 +655,17 @@ EOF
 install_phase3_runner() {
     local target_home="$1" target_user="$2"
     local runner="${target_home}/.local/bin/endeavour-run-phase3"
-    local sway_autostart="${target_home}/.config/sway/config.d/autostart_applications"
     mkdir -p "$(dirname "$runner")"
 
-    # INSTALL_SCRIPT_DEST expands now; \${...} expands when the runner executes.
-    cat > "$runner" << SCRIPT
-#!/bin/bash
-notes="\${HOME}/.config/endeavour-post-phase3.txt"
-sway_autostart="\${HOME}/.config/sway/config.d/autostart_applications"
-
-case "\${1:-}" in
-  --show-notes)
-    # Runs in first Sway session after the reboot that follows Phase 3.
-    [[ -f "\${notes}" ]] || exit 0
-    xdg-open 'https://chromewebstore.google.com/detail/1password-%E2%80%93-password-mana/aeblfdkhhhdcdjpifhhbdiojplfjncoa' &
-    foot -e sh -c "cat '\${notes}'; echo; read -r -p 'Press Enter to dismiss.' _"
-    rm -f "\${notes}"
-    sed -i "\\|exec ${runner} --show-notes|d" "\${sway_autostart}" 2>/dev/null || true
-    ;;
-  *)
-    # Runs in TTY login shell (bash --login autologin via greetd).
-    log="\${HOME}/.config/endeavour-phase3.log"
-    warnings="\${HOME}/.config/endeavour-warnings"
-    if [[ -f "\${warnings}" ]]; then
-        echo '=== Phase 2 notes ==='
-        cat "\${warnings}"
-        echo
-    fi
-    ${INSTALL_SCRIPT_DEST} "\${USER}" --phase 3 2>&1 | tee "\${log}"
-    rc=\${PIPESTATUS[0]}
-    echo
-    if [[ \$rc -eq 0 ]]; then
-        rm -f "\${warnings}"
-        printf 'Manual steps remaining:\n\n  tailscale up\n  tailscale set --accept-dns=true\n  tailscale set --accept-routes\n  rclone config (optional)\n' > "\${notes}"
-        grep -qF '${runner} --show-notes' "\${sway_autostart}" 2>/dev/null || \\
-            printf '\nexec ${runner} --show-notes\n' >> "\${sway_autostart}"
-        sed -i "\\|${runner}|d" "\${HOME}/.bash_profile" 2>/dev/null || true
-        systemctl reboot
+    local dir src
+    dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)" || dir=""
+    src="${dir}/endeavour-run-phase3.bash"
+    [[ -f "$src" ]] || src="${dir}/endeavour-run-phase3"
+    if [[ -f "$src" ]]; then
+        cp "$src" "$runner"
     else
-        echo "Phase 3 FAILED (exit code \$rc). Log: \${log}"
-        read -r -p 'Press Enter to dismiss.' _
+        curl -fsSL "$PHASE3_RUNNER_URL" -o "$runner"
     fi
-    ;;
-esac
-SCRIPT
     chmod +x "$runner"
 
     # Register in .bash_profile so it runs on TTY login (not in the Sway autostart).
