@@ -952,6 +952,10 @@ phase1() {
     info "=== Phase 1: phase 3 autostart ==="
     install_phase3_runner "$target_home" "$target_user"
 
+    run_setup_step write_phase3_sudoers \
+        "=== Phase 1: phase 3 passwordless sudo ===" \
+        "Grant temporary NOPASSWD sudo for phase 3." "$target_user"
+
     info ""
     info "Phase 1 complete. Reboot — phase 2 will run automatically on first boot."
     if [[ -f "$WARNINGS_FILE" ]]; then
@@ -1025,10 +1029,6 @@ phase2() {
         rm -f "$WARNINGS_FILE"
     fi
     install_phase3_runner "$target_home" "$target_user"
-
-    run_setup_step write_phase3_sudoers \
-        "=== Phase 2: phase 3 passwordless sudo ===" \
-        "Grant temporary NOPASSWD sudo for phase 3." "$target_user"
 
     info ""
     info "Phase 2 complete. Phase 3 will start automatically on first TTY login."
