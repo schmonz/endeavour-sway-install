@@ -134,10 +134,40 @@ detect_target_user() {
 
 # ── etckeeper ─────────────────────────────────────────────────────────────────
 
+configure_root_git_identity() {
+    local root_id="root@$(cat /etc/hostname)"
+    git config --global user.email "$root_id"
+    git config --global user.name "$root_id"
+}
+
+init_etckeeper() {
+    etckeeper vcs log --oneline -1 &>/dev/null && return 0
+    etckeeper init
+    git -C /etc branch -m "$(cat /etc/hostname)"
+}
+
+etckeeper_catch_up() {
+    etckeeper commit -m 'Track /etc after phase-1 install.' 2>/dev/null || true
+    git -C /etc gc --prune 2>/dev/null || warn "git gc failed (non-fatal)."
+}
+
 etckeeper_commit() {
     local msg="$1"
     info "etckeeper commit: ${msg}"
     _sudo etckeeper commit -m "$msg"
+}
+
+# ── Dotfiles ──────────────────────────────────────────────────────────────────
+
+setup_dotfiles() {
+    local target_user="$1" target_home="$2"
+    if [[ ! -d "${target_home}/trees/dotfiles" ]]; then
+        su - "$target_user" -c \
+            "mkdir -p ~/trees && git clone https://github.com/schmonz/dotfiles.git ~/trees/dotfiles"
+    fi
+    su - "$target_user" -c \
+        "ln -sf ~/trees/dotfiles/gitconfig ~/.gitconfig && ln -sf ~/trees/dotfiles/tmux.conf ~/.tmux.conf"
+    ln -sf "${target_home}/trees/dotfiles/gitconfig" /root/.gitconfig
 }
 
 # ── Logind drop-ins ───────────────────────────────────────────────────────────
@@ -727,11 +757,9 @@ phase1() {
 
     detect_machine_capabilities
 
-    info "=== Phase 1: pacman installs ==="
-    local root_id="root@$(cat /etc/hostname)"
-    git config --global user.email "$root_id"
-    git config --global user.name "$root_id"
+    configure_root_git_identity
 
+    info "=== Phase 1: pacman installs ==="
     # Replaced by Helium in phase 3.
     pacman -Rs --noconfirm firefox || true
 
@@ -751,10 +779,7 @@ phase1() {
         grub-btrfs
 
     info "=== Phase 1: etckeeper init ==="
-    if ! etckeeper vcs log --oneline -1 &>/dev/null; then
-        etckeeper init
-        git -C /etc branch -m "$(cat /etc/hostname)"
-    fi
+    init_etckeeper
 
     run_setup_step setup_autologin \
         "=== Phase 1: autologin ===" \
@@ -815,17 +840,10 @@ phase2() {
     detect_machine_capabilities
 
     info "=== Phase 2: dotfiles ==="
-    if [[ ! -d "${target_home}/trees/dotfiles" ]]; then
-        su - "$target_user" -c \
-            "mkdir -p ~/trees && git clone https://github.com/schmonz/dotfiles.git ~/trees/dotfiles"
-    fi
-    su - "$target_user" -c \
-        "ln -sf ~/trees/dotfiles/gitconfig ~/.gitconfig && ln -sf ~/trees/dotfiles/tmux.conf ~/.tmux.conf"
-    ln -sf "${target_home}/trees/dotfiles/gitconfig" /root/.gitconfig
+    setup_dotfiles "$target_user" "$target_home"
 
     info "=== Phase 2: etckeeper commit ==="
-    etckeeper commit -m 'Track /etc after phase-1 install.' 2>/dev/null || true
-    git -C /etc gc --prune 2>/dev/null || warn "git gc failed (non-fatal)."
+    etckeeper_catch_up
 
     run_setup_step setup_bluetooth \
         "=== Phase 2: Bluetooth ===" \
