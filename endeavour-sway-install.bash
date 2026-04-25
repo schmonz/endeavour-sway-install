@@ -646,6 +646,13 @@ setup_zswap() {
     sudo grub-mkconfig -o /boot/grub/grub.cfg
 }
 
+setup_clipboard_helpers() {
+    mkdir -p /usr/local/bin
+    printf '#!/bin/sh\nexec wl-copy "$@"\n' > /usr/local/bin/pbcopy
+    printf '#!/bin/sh\nexec wl-paste --no-newline "$@"\n' > /usr/local/bin/pbpaste
+    chmod +x /usr/local/bin/pbcopy /usr/local/bin/pbpaste
+}
+
 setup_pacman_cache() {
     pacman_install pacman-contrib
     system_systemctl enable paccache.timer
@@ -937,10 +944,7 @@ phase1() {
         "Enable Mac-like accents with Right-Alt."
 
     info "=== Phase 1: pbcopy / pbpaste ==="
-    mkdir -p /usr/local/bin
-    printf '#!/bin/sh\nexec wl-copy "$@"\n' > /usr/local/bin/pbcopy
-    printf '#!/bin/sh\nexec wl-paste --no-newline "$@"\n' > /usr/local/bin/pbpaste
-    chmod +x /usr/local/bin/pbcopy /usr/local/bin/pbpaste
+    setup_clipboard_helpers
 
     run_setup_step setup_1password_browser_integration \
         "=== Phase 1: 1Password browser integration ===" \
