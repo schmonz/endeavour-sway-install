@@ -1,7 +1,6 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 load_script() {
-    export SOURCED_FOR_TESTING=1
     _sudo()  { true; }
     warn()   { true; }
     inform() { true; }

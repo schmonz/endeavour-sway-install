@@ -12,8 +12,10 @@ set -euo pipefail
 
 WARNINGS_FILE="/root/endeavour-setup-warnings.txt"
 INSTALL_SCRIPT_DEST="/usr/local/bin/endeavour-sway-install"
+MACHINE_CAPS_DEST="/usr/local/bin/machine-caps"
 FIRSTBOOT_SERVICE="/etc/systemd/system/endeavour-sway-firstboot.service"
 SELF_URL="https://raw.githubusercontent.com/schmonz/endeavour-sway-install/main/endeavour-sway-install.bash"
+MACHINE_CAPS_URL="https://raw.githubusercontent.com/schmonz/endeavour-sway-install/main/machine-caps.bash"
 SWAY_CE_URL="https://raw.githubusercontent.com/EndeavourOS-Community-Editions/sway/main/setup_sway_isomode.bash"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -85,27 +87,19 @@ configure_sway_autostart() {
 # Clone URL into DIR only if DIR doesn't already exist.
 clone_if_missing() { local url="$1" dir="$2"; [[ -d "$dir" ]] || git clone "$url" "$dir"; }
 
-# ── Machine capability flags ──────────────────────────────────────────────────
-#
-# reset_flags() sets defaults; detect_machine_capabilities() adjusts them.
+# ── Machine capabilities ──────────────────────────────────────────────────────
 
-reset_flags() {
-    HAS_RESUME=true                  # system has working suspend/resume
-    HAS_LID_EVENTS=true              # kernel input events for lid (e.g. Lid Switch)
-    HAS_POWERBUTTON_EVENTS=true      # events reach the UI (not grabbed by logind)
-    HAS_AVS_AUDIO=false              # run chromebook-linux-audio AVS setup
-    HAS_CROS_FKEYS=false             # install cros-keyboard-map
-    HAS_AMBIENT_LIGHT_SENSOR=false   # install iio-sensor-proxy + clight, enable clightd
-    HAS_KBD_BACKLIGHT=false          # auto-detect keyboard backlight and add Sway bindings
-    HAS_APPLESMC=false               # install + enable mbpfan
-    HAS_FACETIMEHD=false             # install facetimehd-dkms (FaceTime HD webcam)
-    HAS_PHANTOM_SECOND_DISPLAY=false # disable phantom second internal display
-    HAS_PLENTY_OF_RAM=false          # skip zswap (GRUB_CMDLINE_LINUX_DEFAULT)
-    HAS_IR_RECEIVER=false            # set up LIRC infrared receiver
-    HAS_THINKPAD_HARDWARE=false      # ThinkPad-specific: smart card, buttons, fingerprint
-    HAS_GL_CAPABLE_GPU=true          # GPU handles modern OpenGL (false → LIBGL_ALWAYS_SOFTWARE=1)
+_source_machine_caps() {
+    local dir
+    dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)" || dir=""
+    if [[ -f "${dir}/machine-caps.bash" ]]; then
+        source "${dir}/machine-caps.bash"
+    else
+        source <(curl -fsSL "$MACHINE_CAPS_URL")
+    fi
 }
-reset_flags
+_source_machine_caps
+unset -f _source_machine_caps
 
 report_capabilities() {
     local fmt='  %-34s %s\n'
@@ -130,108 +124,6 @@ report_capabilities() {
     )
     info "$text"
     [[ $EUID -ne 0 ]] || echo "$text" >> "$WARNINGS_FILE"
-}
-
-# ── Hardware probes ───────────────────────────────────────────────────────────
-#
-# Each probe sets one or more capability flags.
-# File/device probes read from ${PROBE_ROOT} (default empty = real system root).
-# Command-output probes accept pre-collected output as their first argument.
-# Tests set PROBE_ROOT to a fixture directory and pass synthetic strings.
-
-PROBE_ROOT="${PROBE_ROOT:-}"
-
-# HAS_RESUME: MrChromebox firmware = Chromebook with broken suspend/resume.
-probe_has_resume() {          # arg: bios-version string
-    [[ "${1:-}" == MrChromebox* ]] && HAS_RESUME=false || true
-}
-
-# HAS_LID_EVENTS: kernel input events for lid are reliable.
-# Chromebook firmware handles lid events via EC; "Lid Switch" node exists but never fires.
-probe_has_lid_events() {
-    [[ -f "${PROBE_ROOT}/proc/acpi/button/lid/LID0/state" ]] || return 0
-    [[ -e "${PROBE_ROOT}/dev/cros_ec" ]] && { HAS_LID_EVENTS=false; return; }
-    grep -rql "Lid Switch" "${PROBE_ROOT}/sys/class/input/input"*/name 2>/dev/null \
-        && return 0
-    HAS_LID_EVENTS=false
-}
-
-# HAS_POWERBUTTON_EVENTS: LNXPWRBN power button events reach the UI, so there's
-# no "exclusive grab" from logind that we need to override with udev.
-# A non-LNXPWRBN "Power Button" (e.g. Apple firmware button on Mac) bypasses
-# logind's exclusive grab and delivers events directly to libinput, so HAS_POWERBUTTON_EVENTS
-# stays true even if the LNXPWRBN device has the power-switch tag.
-probe_has_powerbutton_events() { # args: LNXPWRBN udevadm output, has_non_lnxpwrbn_power_button
-    ${2:-false} && return 0
-    grep -q "power-switch" <<< "${1:-}" && HAS_POWERBUTTON_EVENTS=false || true
-}
-
-# HAS_CROS_FKEYS + HAS_AVS_AUDIO: Chrome EC present.
-probe_has_cros_ec() {
-    if [[ -d "${PROBE_ROOT}/sys/class/chromeos/cros_ec" ]] \
-       || [[ -e "${PROBE_ROOT}/dev/cros_ec" ]]; then
-        HAS_CROS_FKEYS=true
-        HAS_AVS_AUDIO=true
-    fi
-}
-
-# HAS_AMBIENT_LIGHT_SENSOR: IIO illuminance sensor visible in sysfs.
-probe_has_ambient_light_sensor() {
-    ls "${PROBE_ROOT}"/sys/bus/iio/devices/*/in_illuminance* 2>/dev/null \
-        | grep -q . && HAS_AMBIENT_LIGHT_SENSOR=true || true
-}
-
-# HAS_KBD_BACKLIGHT: keyboard backlight LED device in sysfs.
-probe_has_kbd_backlight() {
-    ls "${PROBE_ROOT}/sys/class/leds/" 2>/dev/null \
-        | grep -qiE "kbd|keyboard" && HAS_KBD_BACKLIGHT=true || true
-}
-
-# HAS_APPLESMC: Apple MacBook — applesmc present, needs mbpfan for fan control.
-probe_has_applesmc() {    # args: vendor, product
-    [[ "${1:-}" == "Apple Inc." ]] \
-        && [[ "${2:-}" == MacBook* ]] \
-        && HAS_APPLESMC=true || true
-}
-
-# HAS_FACETIMEHD: Broadcom FaceTime HD camera (PCIe ID 14e4:1570).
-probe_has_facetimehd() {      # arg: lspci -n output
-    grep -q "14e4:1570" <<< "${1:-}" && HAS_FACETIMEHD=true || true
-}
-
-# HAS_PHANTOM_SECOND_DISPLAY: second internal LVDS output enumerated by DRM.
-# Requires GPU driver to be loaded — may be false during phase 1 chroot.
-probe_has_phantom_second_display() {
-    ls "${PROBE_ROOT}/sys/class/drm/" 2>/dev/null \
-        | grep -q "LVDS-2" && HAS_PHANTOM_SECOND_DISPLAY=true || true
-}
-
-# HAS_PLENTY_OF_RAM: total RAM at least 8 GiB; machines with less get zswap.
-probe_has_plenty_of_ram() {   # arg: MemTotal value in kB
-    local kb="${1:-0}"
-    (( kb >= 8*1024*1024 )) && HAS_PLENTY_OF_RAM=true || true
-}
-
-# HAS_IR_RECEIVER: LIRC character device present.
-probe_has_ir_receiver() {
-    ls "${PROBE_ROOT}"/dev/lirc* 2>/dev/null | grep -q . && HAS_IR_RECEIVER=true || true
-}
-
-# HAS_THINKPAD_HARDWARE: Lenovo ThinkPad SMBIOS — TrackPoint buttons, smart card,
-# ThinkVantage button, fingerprint reader are ThinkPad-specific.
-probe_has_thinkpad_hardware() {    # args: vendor, product, version
-    if [[ "${1:-}" == "LENOVO" ]] \
-       && { echo "${2:-}" | grep -qi "ThinkPad" \
-            || echo "${3:-}" | grep -qi "ThinkPad"; }; then
-        HAS_THINKPAD_HARDWARE=true
-    fi
-}
-
-# HAS_GL_CAPABLE_GPU: GPU can drive modern OpenGL; r300-family ATI/AMD cannot
-# and require llvmpipe via LIBGL_ALWAYS_SOFTWARE=1.
-# 1002:5b6x = RV370 (Radeon X300/X600); 1002:7145 = M26 (Mobility Radeon X1400)
-probe_has_gl_capable_gpu() {  # arg: lspci -n output
-    grep -qE "1002:(5b6|7145)" <<< "${1:-}" && HAS_GL_CAPABLE_GPU=false || true
 }
 
 # ── Capability orchestrator ───────────────────────────────────────────────────
@@ -743,11 +635,13 @@ install_firstboot_service() {
     info "Installing ${FIRSTBOOT_SERVICE} ..."
     if [[ -f "$0" ]]; then
         cp "$0" "$INSTALL_SCRIPT_DEST"
+        cp "$(dirname "$0")/machine-caps.bash" "$MACHINE_CAPS_DEST"
     else
-        # Piped via curl | bash — $0 is not a real file; fetch the script directly.
+        # Piped via curl | bash — $0 is not a real file; fetch the scripts directly.
         curl -fsSL "$SELF_URL" -o "$INSTALL_SCRIPT_DEST"
+        curl -fsSL "$MACHINE_CAPS_URL" -o "$MACHINE_CAPS_DEST"
     fi
-    chmod +x "$INSTALL_SCRIPT_DEST"
+    chmod +x "$INSTALL_SCRIPT_DEST" "$MACHINE_CAPS_DEST"
 
     cat > "$FIRSTBOOT_SERVICE" << EOF
 [Unit]
