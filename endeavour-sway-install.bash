@@ -675,6 +675,27 @@ setup_thinkpad_goodies() {
       # XXX T60 volume and power buttons, ThinkVantage button, fingerprint reader
 }
 
+setup_kbd_backlight() {
+    local kbd_dev
+    kbd_dev=$(brightnessctl --list 2>/dev/null | awk -F"'" '/[Kk]eyboard/{print $2; exit}')
+    if [[ -n "$kbd_dev" ]]; then
+        info "Keyboard backlight device: ${kbd_dev}"
+        brightnessctl --device="$kbd_dev" set 50%
+        if ! grep -q "XF86KbdBrightnessUp" ~/.config/sway/config.d/default 2>/dev/null; then
+            sed -i "/XF86MonBrightnessDown/a\\        XF86KbdBrightnessUp exec brightnessctl -d '${kbd_dev}' set +5%\\n        XF86KbdBrightnessDown exec brightnessctl -d '${kbd_dev}' set 5%-" \
+                ~/.config/sway/config.d/default
+        fi
+    else
+        accumulate_warning "No keyboard backlight device found — skipping kbd brightness bindings."
+    fi
+}
+
+setup_software_gl() {
+    info "Enabling software GL rendering (LIBGL_ALWAYS_SOFTWARE=1) ..."
+    mkdir -p ~/.config/environment.d
+    echo 'LIBGL_ALWAYS_SOFTWARE=1' > ~/.config/environment.d/50-softgl.conf
+}
+
 # ── First-boot service (written by phase 1, runs as phase 2) ─────────────────
 
 install_firstboot_service() {
@@ -1177,20 +1198,7 @@ EOF
     #         "Configure clight brightness floor (prevent invisible screen)."
     # fi
 
-    if $HAS_KBD_BACKLIGHT; then
-        local kbd_dev
-        kbd_dev=$(brightnessctl --list 2>/dev/null | awk -F"'" '/[Kk]eyboard/{print $2; exit}')
-        if [[ -n "$kbd_dev" ]]; then
-            info "Keyboard backlight device: ${kbd_dev}"
-            brightnessctl --device="$kbd_dev" set 50%
-            if ! grep -q "XF86KbdBrightnessUp" ~/.config/sway/config.d/default 2>/dev/null; then
-                sed -i "/XF86MonBrightnessDown/a\\        XF86KbdBrightnessUp exec brightnessctl -d '${kbd_dev}' set +5%\\n        XF86KbdBrightnessDown exec brightnessctl -d '${kbd_dev}' set 5%-" \
-                    ~/.config/sway/config.d/default
-            fi
-        else
-            accumulate_warning "No keyboard backlight device found — skipping kbd brightness bindings."
-        fi
-    fi
+    $HAS_KBD_BACKLIGHT && setup_kbd_backlight
 
     $HAS_APPLESMC            && run_setup_step setup_mac_fan \
         "Installing mbpfan ..." \
@@ -1203,11 +1211,7 @@ EOF
         "Enabling zswap ..." \
         "Enable zswap."
 
-    if ! $HAS_GL_CAPABLE_GPU; then
-        info "Enabling software GL rendering (LIBGL_ALWAYS_SOFTWARE=1) ..."
-        mkdir -p ~/.config/environment.d
-        echo 'LIBGL_ALWAYS_SOFTWARE=1' > ~/.config/environment.d/50-softgl.conf
-    fi
+    $HAS_GL_CAPABLE_GPU || setup_software_gl
 
     $HAS_IR_RECEIVER         && setup_infrared_receiver
     $HAS_THINKPAD_HARDWARE   && setup_thinkpad_goodies
