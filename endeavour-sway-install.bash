@@ -573,17 +573,13 @@ EOF
 setup_avs_audio() {
     info "Setting up Chromebook audio ..."
     clone_if_missing https://github.com/WeirdTreeThing/chromebook-linux-audio ~/trees/chromebook-linux-audio
-    cd ~/trees/chromebook-linux-audio
-    echo "I UNDERSTAND THE RISK OF PERMANENTLY DAMAGING MY SPEAKERS" | ./setup-audio --force-avs-install
-    cd -
+    (cd ~/trees/chromebook-linux-audio && echo "I UNDERSTAND THE RISK OF PERMANENTLY DAMAGING MY SPEAKERS" | ./setup-audio --force-avs-install)
 }
 
 setup_cros_fkeys() {
     info "Setting up Chromebook F-keys ..."
     clone_if_missing https://github.com/WeirdTreeThing/cros-keyboard-map ~/trees/cros-keyboard-map
-    cd ~/trees/cros-keyboard-map
-    ./install.sh
-    cd -
+    (cd ~/trees/cros-keyboard-map && ./install.sh)
 }
 
 setup_mac_fan() {
