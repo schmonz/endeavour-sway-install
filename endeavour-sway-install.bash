@@ -127,8 +127,12 @@ detect_target_user() {
 
 configure_root_git_identity() {
     local root_id="root@$(cat /etc/hostname)"
+    # Unset live-environment variables that override config files.
+    unset GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL
     git config --global user.email "$root_id"
-    git config --global user.name "$root_id"
+    git config --global user.name  "$root_id"
+    git -C /etc config  user.email "$root_id"
+    git -C /etc config  user.name  "$root_id"
 }
 
 init_etckeeper() {
@@ -646,20 +650,15 @@ setup_software_gl() {
 
 install_firstboot_service() {
     info "Installing ${FIRSTBOOT_SERVICE} ..."
-    if [[ -f "$0" ]]; then
-        local src
-        src="$(dirname "$0")"
-        cp "$0"                              "$INSTALL_SCRIPT_DEST"
-        cp "${src}/machine-caps.bash"        "$MACHINE_CAPS_DEST"
-        cp "${src}/sway-lid-handler.bash"    "$SWAY_LID_HANDLER_DEST"
-        cp "${src}/endeavour-run-phase3.bash" "$PHASE3_RUNNER_DEST"
-    else
-        # Piped via curl | bash — $0 is not a real file; fetch the scripts directly.
-        fetch "$SELF_URL"             "$INSTALL_SCRIPT_DEST"
-        fetch "$MACHINE_CAPS_URL"     "$MACHINE_CAPS_DEST"
-        fetch "$SWAY_LID_HANDLER_URL" "$SWAY_LID_HANDLER_DEST"
-        fetch "$PHASE3_RUNNER_URL"    "$PHASE3_RUNNER_DEST"
-    fi
+    if [[ -f "$0" ]]; then cp "$0" "$INSTALL_SCRIPT_DEST"; else fetch "$SELF_URL" "$INSTALL_SCRIPT_DEST"; fi
+    local dir
+    dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)" || dir=""
+    local mc="${dir}/machine-caps.bash"; [[ -f "$mc" ]] || mc="${dir}/machine-caps"
+    if [[ -f "$mc" ]];  then cp "$mc"  "$MACHINE_CAPS_DEST";     else fetch "$MACHINE_CAPS_URL"     "$MACHINE_CAPS_DEST";     fi
+    local slh="${dir}/sway-lid-handler.bash"; [[ -f "$slh" ]] || slh="${dir}/sway-lid-handler"
+    if [[ -f "$slh" ]]; then cp "$slh" "$SWAY_LID_HANDLER_DEST"; else fetch "$SWAY_LID_HANDLER_URL" "$SWAY_LID_HANDLER_DEST"; fi
+    local p3="${dir}/endeavour-run-phase3.bash"; [[ -f "$p3" ]] || p3="${dir}/endeavour-run-phase3"
+    if [[ -f "$p3" ]];  then cp "$p3"  "$PHASE3_RUNNER_DEST";    else fetch "$PHASE3_RUNNER_URL"    "$PHASE3_RUNNER_DEST";    fi
     chmod +x "$INSTALL_SCRIPT_DEST" "$MACHINE_CAPS_DEST" "$SWAY_LID_HANDLER_DEST" "$PHASE3_RUNNER_DEST"
 
     cat > "$FIRSTBOOT_SERVICE" << EOF
@@ -831,11 +830,11 @@ phase1() {
     target_home=$(getent passwd "$target_user" | cut -d: -f6)
 
     detect_machine_capabilities
-    configure_root_git_identity
 
     remove_firefox
     install_version_control
     init_etckeeper
+    configure_root_git_identity
 
     install_bluetooth
     install_networking
