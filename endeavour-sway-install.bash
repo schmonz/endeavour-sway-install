@@ -677,6 +677,7 @@ install_firstboot_service() {
 Description=EndeavourOS Sway first-boot setup (phase 2)
 Documentation=file://${INSTALL_SCRIPT_DEST}
 After=network-online.target nss-lookup.target systemd-user-sessions.service
+Before=greetd.service
 Wants=network-online.target nss-lookup.target
 ConditionPathExists=${INSTALL_SCRIPT_DEST}
 
