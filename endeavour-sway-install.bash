@@ -925,10 +925,6 @@ phase2() {
     info "=== Phase 2: etckeeper commit ==="
     etckeeper_catch_up
 
-    run_setup_step setup_bluetooth \
-        "=== Phase 2: Bluetooth ===" \
-        "Enable Bluetooth."
-
     run_setup_step setup_tailscaled \
         "=== Phase 2: Tailscale ===" \
         "Enable Tailscale daemon."
