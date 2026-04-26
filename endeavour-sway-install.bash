@@ -950,10 +950,6 @@ phase2() {
     info "=== Phase 2: logind restart ==="
     $HAS_POWERBUTTON_EVENTS || reload_thinkpad_udev
 
-    run_setup_step setup_autologin \
-        "=== Phase 2: autologin (re-apply if installer overwrote greetd.conf) ===" \
-        "Enable autologin (TTY, for phase 3)." "$target_user" "bash --login"
-
     run_setup_step remove_firstboot_service \
         "=== Phase 2: remove firstboot service ===" \
         "Remove phase-2 firstboot service."
