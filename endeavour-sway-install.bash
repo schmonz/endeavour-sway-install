@@ -91,17 +91,28 @@ clone_if_missing() { local url="$1" dir="$2"; [[ -d "$dir" ]] || git clone "$url
 
 _source_machine_caps() {
     local dir mc
-    dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)" || dir=""
+    dir="$(cd "$(dirname "$0")" 2>/dev/null && pwd)" || dir=""
     mc="${dir}/machine-caps.bash"
     [[ -f "$mc" ]] || mc="${dir}/machine-caps"
-    if [[ -f "$mc" ]]; then
-        source "$mc"
-    else
-        source_fetched "$MACHINE_CAPS_URL"
+    if [[ ! -f "$mc" ]]; then
+        mc="${dir}/machine-caps.bash"
+        fetch "$MACHINE_CAPS_URL" "$mc"
     fi
+    source "$mc"
 }
+
+_prefetch_companions() {
+    local dir slh p3
+    dir="$(cd "$(dirname "$0")" 2>/dev/null && pwd)" || return 0
+    slh="${dir}/sway-lid-handler.bash"
+    [[ -f "$slh" ]] || [[ -f "${dir}/sway-lid-handler" ]] || fetch "$SWAY_LID_HANDLER_URL" "$slh"
+    p3="${dir}/endeavour-run-phase3.bash"
+    [[ -f "$p3" ]]  || [[ -f "${dir}/endeavour-run-phase3" ]] || fetch "$PHASE3_RUNNER_URL"    "$p3"
+}
+
 _source_machine_caps
-unset -f _source_machine_caps
+_prefetch_companions
+unset -f _source_machine_caps _prefetch_companions
 
 report_capabilities() {
     local text
