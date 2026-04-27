@@ -475,7 +475,8 @@ configure_desktop_tools() {
 }
 
 revoke_phase3_sudo() {
-    _sudo rm -f /etc/sudoers.d/99-phase3-nopasswd
+    local user="$1"
+    _sudo sed -i "/^${user} ALL=(ALL) NOPASSWD: ALL\$/d" /etc/sudoers
     etckeeper_commit "Remove temporary phase-3 NOPASSWD sudo."
 }
 
@@ -808,9 +809,9 @@ remove_firstboot_service() {
 
 write_phase3_sudoers() {
     local user="$1"
-    local file="/etc/sudoers.d/99-phase3-nopasswd"
-    printf '%s ALL=(ALL) NOPASSWD: ALL\n' "$user" > "$file"
-    chmod 440 "$file"
+    local line="${user} ALL=(ALL) NOPASSWD: ALL"
+    grep -qF "$line" /etc/sudoers 2>/dev/null \
+        || printf '\n%s\n' "$line" | _sudo tee -a /etc/sudoers > /dev/null
 }
 
 # ── Phase 1: install steps ────────────────────────────────────────────────────
@@ -1013,7 +1014,7 @@ phase3() {
     run_setup_step setup_autologin \
         "=== Phase 3: reconfigure autologin to Sway ===" \
         "Switch greetd autologin from TTY to Sway." "$target_user"
-    revoke_phase3_sudo
+    revoke_phase3_sudo "$target_user"
 
     info ""
     info "Phase 3 complete."
