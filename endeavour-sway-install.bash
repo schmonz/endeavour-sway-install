@@ -969,6 +969,10 @@ phase2() {
         "=== Phase 2: remove firstboot service ===" \
         "Remove phase-2 firstboot service."
 
+    run_setup_step write_phase3_sudoers \
+        "=== Phase 2: phase 3 passwordless sudo ===" \
+        "Grant temporary NOPASSWD sudo for phase 3." "$target_user"
+
     info "=== Phase 2: phase 3 autostart ==="
     if [[ -f "$WARNINGS_FILE" ]]; then
         install -D -o "$target_user" "$WARNINGS_FILE" "${target_home}/.config/endeavour-warnings"
