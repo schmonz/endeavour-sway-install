@@ -23,7 +23,9 @@ case "${1:-}" in
         echo
     fi
     rc=0
-    endeavour-sway-install "${USER}" --phase 3 2>&1 | tee "${log}" || rc=$?
+    systemd-inhibit --what=sleep --who=endeavour-install \
+        --why="Phase 3 installation in progress" --mode=block \
+        endeavour-sway-install "${USER}" --phase 3 2>&1 | tee "${log}" || rc=$?
     echo
     if [[ $rc -eq 0 ]]; then
         rm -f "${warnings}"
