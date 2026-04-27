@@ -51,7 +51,14 @@ append_once() {
 }
 
 pacman_install()    { _sudo pacman -S --noconfirm --needed "$@"; }
-aur_install()       { yay -S --noconfirm --needed "$@"; }
+aur_install() {
+    yay -S --noconfirm --needed "$@"
+    local pkg
+    for pkg in "$@"; do
+        pacman -Q "$pkg" > /dev/null 2>&1 \
+            || { printf 'aur_install: %s not installed\n' "$pkg" >&2; return 1; }
+    done
+}
 system_systemctl() {
     local yes_now=true
     [[ "${1:-}" == "--not-now" ]] && { yes_now=false; shift; }
