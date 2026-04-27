@@ -303,6 +303,25 @@ add_sway_poweroff_binding() {
     chown "${sway_user}:" "$powermenu_conf"
 }
 
+# ── Gtklock ───────────────────────────────────────────────────────────────────
+
+setup_gtklock_config() {
+    local conf="${HOME}/.config/gtklock/config.ini"
+    mkdir -p "$(dirname "$conf")"
+    cat > "$conf" << 'EOF'
+[main]
+gtk-theme=Arc-Dark
+time-format=%l:%M %p
+start-hidden=1
+modules=userinfo-module
+
+[userinfo]
+round-image=true
+horizontal-layout=false
+under-clock=true
+EOF
+}
+
 # ── Swayidle ──────────────────────────────────────────────────────────────────
 
 build_swayidle_line() {
@@ -986,6 +1005,7 @@ phase3() {
     update_firmware
     setup_update_notifier
     configure_desktop_tools
+    setup_gtklock_config
     setup_swayidle $HAS_LID_EVENTS
 
     $HAS_AVS_AUDIO              && setup_avs_audio
