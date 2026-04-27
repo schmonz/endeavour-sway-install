@@ -1,6 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
+inhibit_sleep() { systemd-inhibit --what=sleep --who=endeavour-install --why="Phase 3 installation in progress" --mode=block "$@"; }
+reboot_system() { systemctl reboot; }
+
 notes="${HOME}/.config/endeavour-post-phase3.txt"
 sway_autostart="${HOME}/.config/sway/config.d/autostart_applications"
 
@@ -23,9 +26,7 @@ case "${1:-}" in
         echo
     fi
     rc=0
-    systemd-inhibit --what=sleep --who=endeavour-install \
-        --why="Phase 3 installation in progress" --mode=block \
-        endeavour-sway-install "${USER}" --phase 3 2>&1 | tee "${log}" || rc=$?
+    inhibit_sleep endeavour-sway-install "${USER}" --phase 3 2>&1 | tee "${log}" || rc=$?
     echo
     if [[ $rc -eq 0 ]]; then
         rm -f "${warnings}"
@@ -33,7 +34,7 @@ case "${1:-}" in
         grep -qF "$0 --show-notes" "${sway_autostart}" 2>/dev/null || \
             printf '\nexec %s --show-notes\n' "$0" >> "${sway_autostart}"
         sed -i "\|$0|d" "${HOME}/.bash_profile" 2>/dev/null || true
-        systemctl reboot
+        reboot_system
     else
         echo "Phase 3 FAILED (exit code $rc). Log: ${log}"
         read -r -p 'Press Enter to dismiss.' _

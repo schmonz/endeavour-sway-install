@@ -59,24 +59,15 @@ aur_install() {
             || { printf 'aur_install: %s not installed\n' "$pkg" >&2; return 1; }
     done
 }
-system_systemctl() {
-    local yes_now=true
-    [[ "${1:-}" == "--not-now" ]] && { yes_now=false; shift; }
-    if [[ "${1:-}" == "enable" ]] && $yes_now; then
-        _sudo systemctl enable --now "${@:2}"
-    else
-        _sudo systemctl "$@"
-    fi
-}
-user_systemctl() {
-    local yes_now=true
-    [[ "${1:-}" == "--not-now" ]] && { yes_now=false; shift; }
-    if [[ "${1:-}" == "enable" ]] && $yes_now; then
-        systemctl --user enable --now "${@:2}"
-    else
-        systemctl --user "$@"
-    fi
-}
+enable_system_service()   { _sudo systemctl enable --now "$@"; }
+register_system_service() { _sudo systemctl enable "$@"; }
+disable_system_service()  { _sudo systemctl disable "$@"; }
+mask_system_service()     { _sudo systemctl mask "$@"; }
+
+enable_user_service()     { systemctl --user enable --now "$@"; }
+register_user_service()   { systemctl --user enable "$@"; }
+restart_user_service()    { systemctl --user restart "$@"; }
+reload_user_daemon()      { systemctl --user daemon-reload; }
 
 sway_autostart() {
     local cmd="$1" file="${2:-${HOME}/.config/sway/config.d/autostart_applications}"
@@ -218,8 +209,8 @@ configure_logind() {
     $has_resume && return
 
     info "Masking sleep/suspend/hibernate targets ..."
-    # systemctl mask creates /dev/null symlinks — works in chroot and live system.
-    system_systemctl mask \
+    # mask creates /dev/null symlinks — works in chroot and live system.
+    mask_system_service \
         hibernate.target \
         hybrid-sleep.target \
         sleep.target \
@@ -393,11 +384,11 @@ RestartSec=1
 WantedBy=graphical-session.target
 SERVICE
 
-    user_systemctl daemon-reload
-    user_systemctl --not-now enable sway-lid-handler.service
+    reload_user_daemon
+    register_user_service sway-lid-handler.service
     # Only start now if we're in a graphical session; otherwise it starts at login.
     if [[ -n "${SWAYSOCK:-}" ]]; then
-        user_systemctl restart sway-lid-handler.service
+        restart_user_service sway-lid-handler.service
         info "Service enabled and started."
     else
         info "Service enabled (will start at next Sway login)."
@@ -504,7 +495,7 @@ setup_cros_fkeys() {
 setup_mac_fan() {
     aur_install mbpfan
     _sudo cp /usr/lib/systemd/system/mbpfan.service /etc/systemd/system/
-    system_systemctl enable mbpfan.service
+    enable_system_service mbpfan.service
 }
 
 setup_mac_light_sensors() {
@@ -612,7 +603,7 @@ setup_clipboard_helpers() {
 
 setup_pacman_cache() {
     pacman_install pacman-contrib
-    system_systemctl enable paccache.timer
+    enable_system_service paccache.timer
 }
 
 setup_power_saving() {
@@ -621,12 +612,12 @@ setup_power_saving() {
 
 setup_timeshift() {
     aur_install timeshift-autosnap
-    system_systemctl enable cronie
+    enable_system_service cronie
 }
 
 setup_ambient_light_sensor() {
     aur_install iio-sensor-proxy clight
-    system_systemctl enable clightd
+    enable_system_service clightd
     sway_autostart 'clight'
     ls /sys/bus/iio/devices/*/in_illuminance* || true
 }
@@ -700,7 +691,7 @@ StandardError=journal
 WantedBy=multi-user.target
 EOF
 
-    system_systemctl --not-now enable endeavour-sway-firstboot.service
+    register_system_service endeavour-sway-firstboot.service
     info "First-boot service installed and enabled."
     info "Script saved to ${INSTALL_SCRIPT_DEST} — call with --phase 3 after first login."
 }
@@ -790,9 +781,9 @@ setup_firewall_localsend() {
     firewall-cmd --add-port=53317/udp --permanent
 }
 
-setup_systemd_resolved() {
+setup_stub_resolver() {
     ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
-    system_systemctl --not-now enable systemd-resolved
+    register_system_service systemd-resolved
 }
 
 setup_logind_config() {
@@ -801,16 +792,16 @@ setup_logind_config() {
 }
 
 setup_bluetooth() {
-    system_systemctl enable bluetooth
+    enable_system_service bluetooth
     # bluetoothctl pairing: https://wiki.archlinux.org/title/Bluetooth#Pairing
 }
 
 setup_tailscaled() {
-    system_systemctl enable tailscaled
+    enable_system_service tailscaled
 }
 
 remove_firstboot_service() {
-    system_systemctl disable endeavour-sway-firstboot.service 2>/dev/null || true
+    disable_system_service endeavour-sway-firstboot.service 2>/dev/null || true
     rm -f "$FIRSTBOOT_SERVICE"
 }
 
@@ -888,9 +879,9 @@ phase1() {
         "=== Phase 1: eos-update-notifier ===" \
         "Configure eos-update-notifier to use system tray."
 
-    run_setup_step setup_systemd_resolved \
-        "=== Phase 1: systemd-resolved ===" \
-        "Enable systemd-resolved."
+    run_setup_step setup_stub_resolver \
+        "=== Phase 1: stub resolver ===" \
+        "Configure stub DNS resolver."
 
     run_setup_step setup_logind_config \
         "=== Phase 1: logind / sleep config ===" \
