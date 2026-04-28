@@ -5,4 +5,20 @@
   changed_when: false
 
 - name: Load machine capability facts
-  ansible.builtin.set_fact: "{{ _caps.stdout | from_json }}"
+  ansible.builtin.set_fact:
+    has_resume: "{{ caps['has_resume'] }}"
+    has_lid_events: "{{ caps['has_lid_events'] }}"
+    has_powerbutton_events: "{{ caps['has_powerbutton_events'] }}"
+    has_avs_audio: "{{ caps['has_avs_audio'] }}"
+    has_cros_fkeys: "{{ caps['has_cros_fkeys'] }}"
+    has_ambient_light_sensor: "{{ caps['has_ambient_light_sensor'] }}"
+    has_kbd_backlight: "{{ caps['has_kbd_backlight'] }}"
+    has_applesmc: "{{ caps['has_applesmc'] }}"
+    has_facetimehd: "{{ caps['has_facetimehd'] }}"
+    has_phantom_second_display: "{{ caps['has_phantom_second_display'] }}"
+    has_plenty_of_ram: "{{ caps['has_plenty_of_ram'] }}"
+    has_ir_receiver: "{{ caps['has_ir_receiver'] }}"
+    has_thinkpad_hardware: "{{ caps['has_thinkpad_hardware'] }}"
+    has_gl_capable_gpu: "{{ caps['has_gl_capable_gpu'] }}"
+  vars:
+    caps: "{{ _caps.stdout | from_json }}"
