@@ -59,10 +59,14 @@
   changed_when: false
   failed_when: false
 
-- name: Import 1Password GPG key
+- name: Import GPG keys for AUR packages that ship their own key URL
   ansible.builtin.shell: |
-    curl -sS https://downloads.1password.com/linux/keys/1password.asc | gpg --import
+    curl -sS {{ item }} | gpg --import
+  loop:
+    - https://downloads.1password.com/linux/keys/1password.asc
+    - https://raw.githubusercontent.com/imputnet/helium-linux/main/helium_pub.asc
   changed_when: false
+  failed_when: false
 
 - name: Install AUR packages
   kewlfft.aur.aur:
@@ -70,7 +74,7 @@
       # password manager
       - 1password
       # web browsers
-      # - helium-browser-bin  # keyserver temporarily broken
+      - helium-browser-bin
       - ungoogled-chromium-bin
       - webapp-manager
       # file transfer
