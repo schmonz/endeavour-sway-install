@@ -7,6 +7,7 @@ ConditionPathExists=/usr/local/lib/endeavour-setup/site.yml
 
 [Service]
 Type=oneshot
+ExecStartPre=ansible-galaxy collection install --requirements-file /usr/local/lib/endeavour-setup/requirements.yml
 ExecStart=ansible-playbook /usr/local/lib/endeavour-setup/site.yml
 RemainAfterExit=no
 StandardOutput=journal

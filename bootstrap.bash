@@ -14,7 +14,5 @@ pacman -S --noconfirm --needed ansible git
 
 [[ -d "$DEST/.git" ]] || git clone "$REPO_URL" "$DEST"
 
-ansible-galaxy collection install --requirements-file "$DEST/requirements.yml"
-
 install -m 644 "$DEST/endeavour-setup.service" /etc/systemd/system/endeavour-setup.service
 systemctl enable endeavour-setup.service
