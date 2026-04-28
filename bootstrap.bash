@@ -5,6 +5,7 @@
 # Everything else runs via ansible-playbook on first boot.
 #
 set -euo pipefail
+export LANG=C.UTF-8
 
 REPO_URL="https://github.com/schmonz/endeavour-sway-install.git"
 DEST="/usr/local/lib/endeavour-setup"
