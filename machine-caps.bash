@@ -171,28 +171,49 @@ run_machine_cap_probes() {
     probe_has_gl_capable_gpu         "$lspci_out"
 }
 
+emit_machine_caps_json() {
+    printf '{\n'
+    printf '  "has_resume": %s,\n'                 "$HAS_RESUME"
+    printf '  "has_lid_events": %s,\n'             "$HAS_LID_EVENTS"
+    printf '  "has_powerbutton_events": %s,\n'     "$HAS_POWERBUTTON_EVENTS"
+    printf '  "has_avs_audio": %s,\n'              "$HAS_AVS_AUDIO"
+    printf '  "has_cros_fkeys": %s,\n'             "$HAS_CROS_FKEYS"
+    printf '  "has_ambient_light_sensor": %s,\n'   "$HAS_AMBIENT_LIGHT_SENSOR"
+    printf '  "has_kbd_backlight": %s,\n'          "$HAS_KBD_BACKLIGHT"
+    printf '  "has_applesmc": %s,\n'               "$HAS_APPLESMC"
+    printf '  "has_facetimehd": %s,\n'             "$HAS_FACETIMEHD"
+    printf '  "has_phantom_second_display": %s,\n' "$HAS_PHANTOM_SECOND_DISPLAY"
+    printf '  "has_plenty_of_ram": %s,\n'          "$HAS_PLENTY_OF_RAM"
+    printf '  "has_ir_receiver": %s,\n'            "$HAS_IR_RECEIVER"
+    printf '  "has_thinkpad_hardware": %s,\n'      "$HAS_THINKPAD_HARDWARE"
+    printf '  "has_gl_capable_gpu": %s\n'          "$HAS_GL_CAPABLE_GPU"
+    printf '}\n'
+}
+
 machine_caps_main() {
     reset_flags
     run_machine_cap_probes
 
-    if [[ "${1:-}" == "--verbose" ]]; then
-        report_machine_caps
-    else
-        printf 'HAS_RESUME=%s\n'                 "$HAS_RESUME"
-        printf 'HAS_LID_EVENTS=%s\n'             "$HAS_LID_EVENTS"
-        printf 'HAS_POWERBUTTON_EVENTS=%s\n'     "$HAS_POWERBUTTON_EVENTS"
-        printf 'HAS_AVS_AUDIO=%s\n'              "$HAS_AVS_AUDIO"
-        printf 'HAS_CROS_FKEYS=%s\n'             "$HAS_CROS_FKEYS"
-        printf 'HAS_AMBIENT_LIGHT_SENSOR=%s\n'   "$HAS_AMBIENT_LIGHT_SENSOR"
-        printf 'HAS_KBD_BACKLIGHT=%s\n'          "$HAS_KBD_BACKLIGHT"
-        printf 'HAS_APPLESMC=%s\n'               "$HAS_APPLESMC"
-        printf 'HAS_FACETIMEHD=%s\n'             "$HAS_FACETIMEHD"
-        printf 'HAS_PHANTOM_SECOND_DISPLAY=%s\n' "$HAS_PHANTOM_SECOND_DISPLAY"
-        printf 'HAS_PLENTY_OF_RAM=%s\n'          "$HAS_PLENTY_OF_RAM"
-        printf 'HAS_IR_RECEIVER=%s\n'            "$HAS_IR_RECEIVER"
-        printf 'HAS_THINKPAD_HARDWARE=%s\n'      "$HAS_THINKPAD_HARDWARE"
-        printf 'HAS_GL_CAPABLE_GPU=%s\n'         "$HAS_GL_CAPABLE_GPU"
-    fi
+    case "${1:-}" in
+        --verbose)   report_machine_caps ;;
+        --emit-json) emit_machine_caps_json ;;
+        *)
+            printf 'HAS_RESUME=%s\n'                 "$HAS_RESUME"
+            printf 'HAS_LID_EVENTS=%s\n'             "$HAS_LID_EVENTS"
+            printf 'HAS_POWERBUTTON_EVENTS=%s\n'     "$HAS_POWERBUTTON_EVENTS"
+            printf 'HAS_AVS_AUDIO=%s\n'              "$HAS_AVS_AUDIO"
+            printf 'HAS_CROS_FKEYS=%s\n'             "$HAS_CROS_FKEYS"
+            printf 'HAS_AMBIENT_LIGHT_SENSOR=%s\n'   "$HAS_AMBIENT_LIGHT_SENSOR"
+            printf 'HAS_KBD_BACKLIGHT=%s\n'          "$HAS_KBD_BACKLIGHT"
+            printf 'HAS_APPLESMC=%s\n'               "$HAS_APPLESMC"
+            printf 'HAS_FACETIMEHD=%s\n'             "$HAS_FACETIMEHD"
+            printf 'HAS_PHANTOM_SECOND_DISPLAY=%s\n' "$HAS_PHANTOM_SECOND_DISPLAY"
+            printf 'HAS_PLENTY_OF_RAM=%s\n'          "$HAS_PLENTY_OF_RAM"
+            printf 'HAS_IR_RECEIVER=%s\n'            "$HAS_IR_RECEIVER"
+            printf 'HAS_THINKPAD_HARDWARE=%s\n'      "$HAS_THINKPAD_HARDWARE"
+            printf 'HAS_GL_CAPABLE_GPU=%s\n'         "$HAS_GL_CAPABLE_GPU"
+            ;;
+    esac
 }
 
 report_machine_caps() {
