@@ -6,6 +6,12 @@
   become: yes
 
   pre_tasks:
+    - name: Install required Ansible collections
+      ansible.builtin.command: >
+        ansible-galaxy collection install
+        --requirements-file {{ setup_dir }}/requirements.yml
+      changed_when: false
+
     - name: Detect target user
       ansible.builtin.command: >
         awk -F: '$3 >= 1000 && $3 < 65534 { print $1; exit }' /etc/passwd
