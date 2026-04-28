@@ -25,6 +25,14 @@
     chdir: /tmp/yay-bin
   when: not _yay_bin.stat.exists
 
+- name: Grant temporary NOPASSWD sudo for AUR installs
+  ansible.builtin.lineinfile:
+    path: /etc/sudoers
+    line: "{{ target_user }} ALL=(ALL) NOPASSWD: ALL"
+    validate: visudo -cf %s
+  become: yes
+  become_user: root
+
 - name: Import 1Password GPG key
   ansible.builtin.shell: |
     curl -sS https://downloads.1password.com/linux/keys/1password.asc | gpg --import
@@ -61,3 +69,12 @@
       - timeshift-autosnap
     use: yay
     state: present
+
+- name: Revoke temporary NOPASSWD sudo
+  ansible.builtin.lineinfile:
+    path: /etc/sudoers
+    line: "{{ target_user }} ALL=(ALL) NOPASSWD: ALL"
+    state: absent
+    validate: visudo -cf %s
+  become: yes
+  become_user: root
