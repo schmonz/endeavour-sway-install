@@ -70,7 +70,7 @@
       # password manager
       - 1password
       # web browsers
-      - helium-browser-bin
+      # - helium-browser-bin  # keyserver temporarily broken
       - ungoogled-chromium-bin
       - webapp-manager
       # file transfer
