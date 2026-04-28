@@ -141,6 +141,12 @@
   failed_when: false
   notify: etckeeper commit
 
+- name: Create logind.conf.d directory
+  ansible.builtin.file:
+    path: /etc/systemd/logind.conf.d
+    state: directory
+    mode: '0755'
+
 - name: Write logind power-key drop-in
   ansible.builtin.template:
     src: "{{ 'logind-power-key.conf.j2' if has_resume else 'logind-disable-sleep.conf.j2' }}"
@@ -162,6 +168,13 @@
     - suspend.target
   when: not has_resume
   notify: etckeeper commit
+
+- name: Create sleep.conf.d directory
+  ansible.builtin.file:
+    path: /etc/systemd/sleep.conf.d
+    state: directory
+    mode: '0755'
+  when: not has_resume
 
 - name: Write sleep disable config
   ansible.builtin.copy:
