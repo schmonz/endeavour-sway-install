@@ -1,0 +1,53 @@
+---
+- name: Ensure yay build dependencies are present
+  community.general.pacman:
+    name:
+      - base-devel
+    state: present
+  become: yes
+  become_user: root
+
+- name: Clone yay-bin
+  ansible.builtin.git:
+    repo: https://aur.archlinux.org/yay-bin.git
+    dest: /tmp/yay-bin
+    version: HEAD
+  args:
+    creates: /usr/bin/yay
+
+- name: Build and install yay
+  ansible.builtin.command: makepkg -si --noconfirm
+  args:
+    chdir: /tmp/yay-bin
+    creates: /usr/bin/yay
+
+- name: Install AUR packages
+  community.general.aur:
+    name:
+      # password manager
+      - 1password
+      # web browsers
+      - helium-browser-bin
+      - ungoogled-chromium-bin
+      - webapp-manager
+      # file transfer
+      - localsend-bin
+      # communication
+      - slack-electron
+      - zoom
+      - teams-for-linux-electron-bin
+      # cloud sync
+      - rclone
+      # development
+      - clion
+      - clion-jre
+      # writing
+      - dawn-writer-bin
+      # AI tools
+      - claude-code
+      - claude-desktop-bin
+      - claude-cowork-service
+      # snapshots
+      - timeshift-autosnap
+    use: yay
+    state: present

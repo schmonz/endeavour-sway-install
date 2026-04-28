@@ -1,0 +1,7 @@
+---
+- name: Install FaceTime HD webcam driver
+  community.general.aur:
+    name: facetimehd-dkms
+    use: yay
+    state: present
+  become_user: "{{ target_user }}"

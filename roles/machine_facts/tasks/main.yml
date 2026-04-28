@@ -1,0 +1,8 @@
+---
+- name: Run hardware probes
+  ansible.builtin.command: "{{ setup_dir }}/machine-caps.bash --emit-json"
+  register: _caps
+  changed_when: false
+
+- name: Load machine capability facts
+  ansible.builtin.set_fact: "{{ _caps.stdout | from_json }}"

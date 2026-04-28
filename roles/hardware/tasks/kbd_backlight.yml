@@ -1,0 +1,23 @@
+---
+- name: Find keyboard backlight device
+  ansible.builtin.shell: >
+    brightnessctl --list 2>/dev/null | awk -F"'" '/[Kk]eyboard/{print $2; exit}'
+  register: _kbd_dev
+  changed_when: false
+  failed_when: false
+
+- name: Set keyboard backlight to 50%
+  ansible.builtin.command: "brightnessctl --device={{ _kbd_dev.stdout }} set 50%"
+  when: _kbd_dev.stdout != ''
+  changed_when: true
+
+- name: Add keyboard backlight Sway bindings
+  ansible.builtin.blockinfile:
+    path: "{{ target_home }}/.config/sway/config.d/default"
+    block: |
+      bindsym XF86KbdBrightnessUp exec brightnessctl -d '{{ _kbd_dev.stdout }}' set +5%
+      bindsym XF86KbdBrightnessDown exec brightnessctl -d '{{ _kbd_dev.stdout }}' set 5%-
+    marker: "# {mark} ANSIBLE MANAGED BLOCK: kbd-backlight"
+    insertafter: "XF86MonBrightnessDown"
+  when: _kbd_dev.stdout != ''
+  become_user: "{{ target_user }}"

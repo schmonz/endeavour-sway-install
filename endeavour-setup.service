@@ -1,0 +1,16 @@
+[Unit]
+Description=EndeavourOS Sway first-boot setup
+After=network-online.target nss-lookup.target systemd-user-sessions.service
+Before=greetd.service
+Wants=network-online.target nss-lookup.target
+ConditionPathExists=/usr/local/lib/endeavour-setup/site.yml
+
+[Service]
+Type=oneshot
+ExecStart=ansible-playbook /usr/local/lib/endeavour-setup/site.yml
+RemainAfterExit=no
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

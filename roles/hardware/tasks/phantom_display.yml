@@ -1,0 +1,9 @@
+---
+# MacBookPro5,2: disable phantom second internal display (LVDS-2).
+# Targets GRUB_CMDLINE_LINUX (not _DEFAULT) so recovery boots also get the fix.
+- name: Disable phantom LVDS-2 display in GRUB
+  ansible.builtin.replace:
+    path: /etc/default/grub
+    regexp: '^(GRUB_CMDLINE_LINUX="(?!.*video=LVDS-2:d).*)(")\s*$'
+    replace: '\1 video=LVDS-2:d\2'
+  notify: rebuild grub

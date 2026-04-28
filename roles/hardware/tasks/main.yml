@@ -1,0 +1,37 @@
+---
+- import_tasks: avs_audio.yml
+  when: has_avs_audio
+
+- import_tasks: cros_fkeys.yml
+  when: has_cros_fkeys
+
+- import_tasks: ambient_light.yml
+  when: has_ambient_light_sensor
+
+- import_tasks: applesmc.yml
+  when: has_applesmc
+
+- import_tasks: facetimehd.yml
+  when: has_facetimehd
+
+- import_tasks: phantom_display.yml
+  when: has_phantom_second_display
+
+- import_tasks: zswap.yml
+  when: not has_plenty_of_ram
+
+- import_tasks: software_gl.yml
+  when: not has_gl_capable_gpu
+
+- import_tasks: kbd_backlight.yml
+  when: has_kbd_backlight
+
+- import_tasks: lid_handler.yml
+  when: not has_lid_events
+
+- name: Reboot after hardware configuration changes
+  ansible.builtin.reboot:
+  when: >
+    has_phantom_second_display or
+    not has_plenty_of_ram or
+    (not has_powerbutton_events and udev_reload_result is defined)

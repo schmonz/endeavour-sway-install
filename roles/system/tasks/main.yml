@@ -1,0 +1,261 @@
+---
+- name: Remove firefox
+  community.general.pacman:
+    name: firefox
+    state: absent
+  failed_when: false
+
+- name: Install packages
+  community.general.pacman:
+    name:
+      # version control + /etc tracking
+      - etckeeper
+      - git
+      - git-delta
+      # bluetooth
+      - blueman
+      # networking
+      - gvfs-dnssd
+      - tailscale
+      # keyring
+      - seahorse
+      # firmware updates
+      - fwupd
+      # communication
+      - discord
+      - signal-desktop
+      - guvcview
+      # office
+      - libreoffice-fresh
+      - abiword
+      # printing
+      - cups
+      - cups-browsed
+      - system-config-printer
+      # desktop portals
+      - xdg-desktop-portal
+      - xdg-desktop-portal-wlr
+      # update notifier
+      - eos-update-notifier
+      # system tools
+      - btop
+      - fastfetch
+      - tmux
+      - the_silver_searcher
+      - xorg-xhost
+      # dev tools
+      - apostrophe
+      - glow
+      - tig
+      - github-cli
+      - socat
+      - bats
+      # snapshot support
+      - grub-btrfs
+      # pacman cache cleanup
+      - pacman-contrib
+    state: present
+
+- name: Initialize etckeeper
+  ansible.builtin.command: etckeeper init
+  args:
+    creates: /etc/.git
+  notify: etckeeper commit
+
+- name: Configure root git identity
+  community.general.git_config:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    scope: global
+  loop:
+    - key: user.email
+      value: "root@{{ ansible_hostname }}"
+    - key: user.name
+      value: "root@{{ ansible_hostname }}"
+
+- name: Configure git identity in /etc
+  community.general.git_config:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    repo: /etc
+    scope: local
+  loop:
+    - key: user.email
+      value: "root@{{ ansible_hostname }}"
+    - key: user.name
+      value: "root@{{ ansible_hostname }}"
+
+- name: Configure stub DNS resolver
+  ansible.builtin.copy:
+    dest: /etc/systemd/resolved.conf.d/stub-resolver.conf
+    content: |
+      [Resolve]
+      DNS=1.1.1.1 1.0.0.1
+      DNSOverTLS=yes
+      DNSSEC=yes
+    mode: '0644'
+  notify:
+    - restart systemd-resolved
+    - etckeeper commit
+
+- name: Symlink resolv.conf to stub resolver
+  ansible.builtin.file:
+    src: /run/systemd/resolve/stub-resolv.conf
+    dest: /etc/resolv.conf
+    state: link
+    force: yes
+  notify: etckeeper commit
+
+- name: Configure macOS-style keyboard layout
+  ansible.builtin.copy:
+    dest: /etc/X11/xorg.conf.d/00-keyboard.conf
+    content: |
+      Section "InputClass"
+          Identifier "system-keyboard"
+          MatchIsKeyboard "on"
+          Option "XkbLayout" "us"
+          Option "XkbVariant" "mac"
+      EndSection
+    mode: '0644'
+  notify: etckeeper commit
+
+- name: Allow Helium browser in 1Password
+  ansible.builtin.lineinfile:
+    path: /etc/1password/custom_allowed_browsers
+    line: helium
+    create: yes
+    mode: '0644'
+  notify: etckeeper commit
+
+- name: Configure eos-update-notifier system tray
+  ansible.builtin.replace:
+    path: /etc/eos-update-notifier.conf
+    regexp: 'ShowHowAboutUpdates=notify$'
+    replace: 'ShowHowAboutUpdates=notify+tray'
+  failed_when: false
+  notify: etckeeper commit
+
+- name: Write logind power-key drop-in
+  ansible.builtin.template:
+    src: "{{ 'logind-power-key.conf.j2' if has_resume else 'logind-disable-sleep.conf.j2' }}"
+    dest: "/etc/systemd/logind.conf.d/{{ 'power-key' if has_resume else 'disable-sleep' }}.conf"
+    mode: '0644'
+  notify:
+    - reload logind
+    - etckeeper commit
+
+- name: Mask sleep targets
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    masked: yes
+  loop:
+    - hibernate.target
+    - hybrid-sleep.target
+    - sleep.target
+    - suspend-then-hibernate.target
+    - suspend.target
+  when: not has_resume
+  notify: etckeeper commit
+
+- name: Write sleep disable config
+  ansible.builtin.copy:
+    dest: /etc/systemd/sleep.conf.d/disable-sleep.conf
+    content: |
+      [Sleep]
+      AllowHibernation=no
+      AllowHybridSleep=no
+      AllowSuspendThenHibernate=no
+      AllowSuspend=no
+    mode: '0644'
+  when: not has_resume
+  notify: etckeeper commit
+
+- name: Write ThinkPad power-button udev rule
+  ansible.builtin.copy:
+    dest: /etc/udev/rules.d/99-power-button-sway.rules
+    content: |
+      # Strips power-switch tag so logind releases its exclusive grab.
+      # Allows libinput/Sway to handle XF86PowerOff via bindsym.
+      SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="Power Button", ATTRS{phys}=="*LNXPWRBN*", \
+          TAG-="power-switch", TAG+="seat", TAG+="uaccess"
+    mode: '0644'
+  when: not has_powerbutton_events
+  notify:
+    - reload udev
+    - etckeeper commit
+
+- name: Install pbcopy / pbpaste
+  ansible.builtin.copy:
+    dest: "/usr/local/bin/{{ item.name }}"
+    content: "{{ item.content }}"
+    mode: '0755'
+  loop:
+    - name: pbcopy
+      content: "#!/bin/sh\nexec wl-copy \"$@\"\n"
+    - name: pbpaste
+      content: "#!/bin/sh\nexec wl-paste --no-newline \"$@\"\n"
+
+- name: Enable system services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: yes
+    state: started
+  loop:
+    - tailscaled
+    - cups
+    - cups-browsed
+    - bluetooth
+    - systemd-resolved
+    - paccache.timer
+    - cronie
+
+- name: Add target user to tailscale group
+  ansible.builtin.user:
+    name: "{{ target_user }}"
+    groups: tailscale
+    append: yes
+
+- name: Set tailscale operator
+  ansible.builtin.command: "tailscale set --operator={{ target_user }}"
+  changed_when: false
+
+- name: Configure firewall default zone
+  ansible.builtin.command: firewall-cmd --set-default-zone=home
+  changed_when: false
+
+- name: Open LocalSend firewall ports
+  ansible.posix.firewalld:
+    port: "{{ item }}"
+    permanent: yes
+    state: enabled
+  loop:
+    - 53317/tcp
+    - 53317/udp
+  notify: reload firewall
+
+- name: Configure greetd Sway autologin
+  ansible.builtin.blockinfile:
+    path: /etc/greetd/greetd.conf
+    block: |
+      [initial_session]
+      command = "sway"
+      user = "{{ target_user }}"
+    marker: "# {mark} ANSIBLE MANAGED BLOCK"
+  notify: etckeeper commit
+
+- name: Run firmware updates
+  ansible.builtin.shell: |
+    fwupdmgr get-updates || true
+    fwupdmgr update || true
+  changed_when: false
+
+- name: Initialize eos-update-notifier
+  ansible.builtin.command: eos-update-notifier -init
+  args:
+    creates: "{{ target_home }}/.config/eos-update-notifier.conf"
+  become_user: "{{ target_user }}"
+
+- name: Disable endeavour-setup service
+  ansible.builtin.systemd:
+    name: endeavour-setup.service
+    enabled: no

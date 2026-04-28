@@ -1,0 +1,7 @@
+exec swayidle -w \
+    idlehint 1 \
+    timeout 300  'gtklock -d --lock-command "swaymsg output \* dpms off"' resume 'swaymsg "output * dpms on"' \
+    lock         'gtklock -d --lock-command "swaymsg output \* dpms off"' \
+    unlock       'swaymsg "output * dpms on"'{% if has_lid_events %} \
+    before-sleep 'gtklock -d; sleep 1' \
+    after-resume 'swaymsg "output * dpms on"'{% endif %}

@@ -1,0 +1,22 @@
+---
+- name: etckeeper commit
+  ansible.builtin.command: etckeeper commit -m "Ansible: converge system configuration."
+  failed_when: false
+
+- name: reload logind
+  ansible.builtin.systemd:
+    name: systemd-logind
+    state: restarted
+
+- name: restart systemd-resolved
+  ansible.builtin.systemd:
+    name: systemd-resolved
+    state: restarted
+
+- name: reload udev
+  ansible.builtin.shell: |
+    udevadm control --reload-rules
+    udevadm trigger --action=add --subsystem-match=input
+
+- name: reload firewall
+  ansible.builtin.command: firewall-cmd --reload

@@ -1,0 +1,22 @@
+---
+- name: Install ambient light sensor packages
+  community.general.aur:
+    name:
+      - iio-sensor-proxy
+      - clight
+    use: yay
+    state: present
+  become_user: "{{ target_user }}"
+
+- name: Enable clightd service
+  ansible.builtin.systemd:
+    name: clightd
+    enabled: yes
+    state: started
+
+- name: Remove clight from desktop autostart (added separately when sensor present)
+  ansible.builtin.lineinfile:
+    path: "{{ target_home }}/.config/sway/config.d/autostart_applications"
+    line: exec clight
+    state: absent
+  become_user: "{{ target_user }}"

@@ -1,0 +1,7 @@
+---
+- name: Force software GL rendering for legacy GPU
+  ansible.builtin.copy:
+    dest: "{{ target_home }}/.config/environment.d/50-softgl.conf"
+    content: "LIBGL_ALWAYS_SOFTWARE=1\n"
+    mode: '0644'
+  become_user: "{{ target_user }}"

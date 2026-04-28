@@ -1,0 +1,41 @@
+---
+# Chromebook: kernel doesn't emit lid input events, so use a sysfs poller instead.
+- name: Install sway-lid-handler script
+  ansible.builtin.copy:
+    src: "{{ setup_dir }}/sway-lid-handler.bash"
+    dest: "{{ target_home }}/.local/bin/sway-lid-handler"
+    mode: '0755'
+    remote_src: yes
+  become_user: "{{ target_user }}"
+
+- name: Write sway-lid-handler systemd user service
+  ansible.builtin.copy:
+    dest: "{{ target_home }}/.config/systemd/user/sway-lid-handler.service"
+    content: |
+      [Unit]
+      Description=Sway lid-close handler (sysfs ACPI poller)
+      PartOf=graphical-session.target
+
+      [Service]
+      Type=simple
+      ExecStart={{ target_home }}/.local/bin/sway-lid-handler
+      Restart=on-failure
+      RestartSec=1
+
+      [Install]
+      WantedBy=graphical-session.target
+    mode: '0644'
+  become_user: "{{ target_user }}"
+
+- name: Enable sway-lid-handler user service
+  ansible.builtin.systemd:
+    name: sway-lid-handler.service
+    enabled: yes
+    scope: user
+  become_user: "{{ target_user }}"
+
+- name: Add sway-lid-handler autostart entry
+  ansible.builtin.lineinfile:
+    path: "{{ target_home }}/.config/sway/config.d/autostart_applications"
+    line: "exec systemctl --user start sway-lid-handler.service"
+  become_user: "{{ target_user }}"

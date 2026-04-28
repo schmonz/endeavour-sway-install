@@ -1,0 +1,3 @@
+---
+dotfiles_repo: "https://github.com/schmonz/dotfiles.git"
+setup_dir: "/usr/local/lib/endeavour-setup"

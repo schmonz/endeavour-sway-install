@@ -1,0 +1,120 @@
+---
+- name: Configure gtklock (no unauthenticated power buttons)
+  ansible.builtin.template:
+    src: gtklock-config.ini.j2
+    dest: "{{ target_home }}/.config/gtklock/config.ini"
+    mode: '0644'
+
+- name: Configure swayidle
+  ansible.builtin.blockinfile:
+    path: "{{ target_home }}/.config/sway/config.d/autostart_applications"
+    block: "{{ lookup('template', 'swayidle-exec.j2') }}"
+    marker: "# {mark} ANSIBLE MANAGED BLOCK: swayidle"
+
+- name: Add XF86PowerOff binding to sway config
+  ansible.builtin.lineinfile:
+    path: "{{ target_home }}/.config/sway/config.d/default"
+    line: "bindsym XF86PowerOff exec $powermenu"
+    regexp: '^\s*bindsym\s+XF86PowerOff\b'
+
+- name: Configure waybar to use btop
+  ansible.builtin.replace:
+    path: "{{ target_home }}/.config/waybar/config"
+    regexp: '\bhtop\b'
+    replace: btop
+
+- name: Configure waybar btop module name
+  ansible.builtin.replace:
+    path: "{{ target_home }}/.config/sway/config.d/application_defaults"
+    regexp: '\bwaybar_htop\b'
+    replace: waybar_btop
+
+- name: Enable foot browser launch
+  ansible.builtin.lineinfile:
+    path: "{{ target_home }}/.config/foot/foot.ini"
+    regexp: '^#?\s*launch=xdg-open \$\{url\}$'
+    line: "launch=xdg-open ${url}"
+
+- name: Replace sway default browser with xdg-open
+  ansible.builtin.replace:
+    path: "{{ target_home }}/.config/sway/config.d/default"
+    regexp: 'exec firefox'
+    replace: "exec xdg-open https://"
+
+- name: Disable EOS greeter
+  ansible.builtin.ini_file:
+    path: "{{ target_home }}/.config/EOS-greeter.conf"
+    section: null
+    option: Greeter
+    value: disable
+    no_extra_spaces: yes
+    create: yes
+
+- name: Hide unwanted desktop entries
+  ansible.builtin.copy:
+    dest: "{{ target_home }}/{{ item }}"
+    content: |
+      [Desktop Entry]
+      Hidden=true
+    mode: '0644'
+  loop:
+    - .local/share/applications/chromium.desktop
+    - .local/share/applications/kde4/webapp-manager.desktop
+
+- name: Set default browser via mimeapps
+  ansible.builtin.copy:
+    dest: "{{ target_home }}/.config/mimeapps.list"
+    content: |
+      [Default Applications]
+      x-scheme-handler/http=helium.desktop
+      x-scheme-handler/https=helium.desktop
+      text/html=helium.desktop
+      application/xhtml+xml=helium.desktop
+    mode: '0644'
+
+- name: Configure browser preferences
+  ansible.builtin.copy:
+    dest: "{{ target_home }}/{{ item.dest }}"
+    content: "{{ item.content }}\n"
+    mode: '0644'
+  loop:
+    - dest: .config/net.imput.helium/initial_preferences
+      content: '{"browser":{"check_default_browser":false},"distribution":{"skip_first_run_ui":true,"suppress_first_run_bubble":true,"show_welcome_page":false},"session":{"restore_on_startup":1}}'
+    - dest: .config/chromium/initial_preferences
+      content: '{"browser":{"check_default_browser":false},"distribution":{"skip_first_run_ui":true,"suppress_first_run_bubble":true,"show_welcome_page":false},"session":{"restore_on_startup":1}}'
+    - dest: .config/net.imput.helium/Default/Preferences
+      content: '{"browser":{"check_default_browser":false},"session":{"restore_on_startup":1}}'
+    - dest: .config/chromium/Default/Preferences
+      content: '{"browser":{"check_default_browser":false},"session":{"restore_on_startup":1}}'
+    - dest: .config/helium-browser-flags.conf
+      content: "--password-store=basic"
+    - dest: .config/chromium-flags.conf
+      content: "--password-store=basic"
+
+- name: Configure Zoom Wayland sharing
+  ansible.builtin.lineinfile:
+    path: "{{ target_home }}/.config/zoomus.conf"
+    line: enableWaylandShare=true
+    create: yes
+
+- name: Inhibit idle for helium fullscreen
+  ansible.builtin.lineinfile:
+    path: "{{ target_home }}/.config/sway/config.d/application_defaults"
+    line: 'for_window [app_id="helium"] inhibit_idle fullscreen'
+
+- name: Add sway autostart entries
+  ansible.builtin.lineinfile:
+    path: "{{ target_home }}/.config/sway/config.d/autostart_applications"
+    line: "exec {{ item }}"
+  loop:
+    - 1password
+    - localsend --hidden
+    - clight
+  # clight only runs when HAS_AMBIENT_LIGHT_SENSOR — guarded in hardware role
+
+- name: Add sway singleton autostart entries
+  ansible.builtin.lineinfile:
+    path: "{{ target_home }}/.config/sway/config.d/autostart_applications"
+    line: "exec sh -c \"pkill -f '{{ item }}' 2>/dev/null; {{ item }}\""
+  loop:
+    - tailscale systray
