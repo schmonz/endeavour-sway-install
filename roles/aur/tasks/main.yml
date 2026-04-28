@@ -33,10 +33,23 @@
   become: yes
   become_user: root
 
+- name: Ensure ~/.gnupg exists with correct permissions
+  ansible.builtin.file:
+    path: "{{ target_home }}/.gnupg"
+    state: directory
+    mode: '0700'
+
+- name: Configure GPG to auto-retrieve keys from reliable keyserver
+  ansible.builtin.copy:
+    dest: "{{ target_home }}/.gnupg/gpg.conf"
+    content: |
+      keyserver hkps://keyserver.ubuntu.com
+      keyserver-options auto-key-retrieve
+    mode: '0600'
+
 - name: Import 1Password GPG key
   ansible.builtin.shell: |
     curl -sS https://downloads.1password.com/linux/keys/1password.asc | gpg --import
-  become_user: "{{ target_user }}"
   changed_when: false
 
 - name: Install AUR packages
