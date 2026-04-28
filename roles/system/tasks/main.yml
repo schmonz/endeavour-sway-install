@@ -64,6 +64,17 @@
     creates: /etc/.git
   notify: etckeeper commit
 
+- name: Rename etckeeper branch to hostname
+  ansible.builtin.shell: |
+    current=$(git -C /etc symbolic-ref --short HEAD 2>/dev/null)
+    target="{{ ansible_facts['hostname'] }}"
+    if [ "$current" != "$target" ]; then
+      git -C /etc branch -m "$target"
+      echo changed
+    fi
+  register: _branch_rename
+  changed_when: _branch_rename.stdout == 'changed'
+
 - name: Configure root git identity
   community.general.git_config:
     name: "{{ item.key }}"
@@ -112,6 +123,7 @@
     dest: /etc/resolv.conf
     state: link
     force: yes
+    follow: no
   notify: etckeeper commit
 
 - name: Configure macOS-style keyboard layout
@@ -125,6 +137,13 @@
           Option "XkbVariant" "mac"
       EndSection
     mode: '0644'
+  notify: etckeeper commit
+
+- name: Create /etc/1password directory
+  ansible.builtin.file:
+    path: /etc/1password
+    state: directory
+    mode: '0755'
   notify: etckeeper commit
 
 - name: Allow Helium browser in 1Password

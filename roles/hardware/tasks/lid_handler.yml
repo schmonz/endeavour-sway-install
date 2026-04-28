@@ -1,5 +1,15 @@
 ---
 # Chromebook: kernel doesn't emit lid input events, so use a sysfs poller instead.
+- name: Create ~/.local/bin and ~/.config/systemd/user directories
+  ansible.builtin.file:
+    path: "{{ target_home }}/{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - .local/bin
+    - .config/systemd/user
+  become_user: "{{ target_user }}"
+
 - name: Install sway-lid-handler script
   ansible.builtin.copy:
     src: "{{ setup_dir }}/sway-lid-handler.bash"

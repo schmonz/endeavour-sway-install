@@ -14,9 +14,8 @@
     enabled: yes
     state: started
 
-- name: Remove clight from desktop autostart (added separately when sensor present)
+- name: Add clight to sway autostart
   ansible.builtin.lineinfile:
     path: "{{ target_home }}/.config/sway/config.d/autostart_applications"
     line: exec clight
-    state: absent
   become_user: "{{ target_user }}"

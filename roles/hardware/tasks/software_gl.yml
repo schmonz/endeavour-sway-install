@@ -1,4 +1,11 @@
 ---
+- name: Create environment.d directory
+  ansible.builtin.file:
+    path: "{{ target_home }}/.config/environment.d"
+    state: directory
+    mode: '0755'
+  become_user: "{{ target_user }}"
+
 - name: Force software GL rendering for legacy GPU
   ansible.builtin.copy:
     dest: "{{ target_home }}/.config/environment.d/50-softgl.conf"

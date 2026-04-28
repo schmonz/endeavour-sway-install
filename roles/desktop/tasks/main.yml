@@ -1,4 +1,15 @@
 ---
+- name: Create required config directories
+  ansible.builtin.file:
+    path: "{{ target_home }}/{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - .config/gtklock
+    - .local/share/applications/kde4
+    - .config/net.imput.helium/Default
+    - .config/chromium/Default
+
 - name: Configure gtklock (no unauthenticated power buttons)
   ansible.builtin.template:
     src: gtklock-config.ini.j2
@@ -109,8 +120,6 @@
   loop:
     - 1password
     - localsend --hidden
-    - clight
-  # clight only runs when HAS_AMBIENT_LIGHT_SENSOR — guarded in hardware role
 
 - name: Add sway singleton autostart entries
   ansible.builtin.lineinfile:
