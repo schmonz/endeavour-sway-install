@@ -69,9 +69,9 @@
     scope: global
   loop:
     - key: user.email
-      value: "root@{{ ansible_hostname }}"
+      value: "root@{{ ansible_facts['hostname'] }}"
     - key: user.name
-      value: "root@{{ ansible_hostname }}"
+      value: "root@{{ ansible_facts['hostname'] }}"
 
 - name: Configure git identity in /etc
   community.general.git_config:
@@ -81,9 +81,15 @@
     scope: local
   loop:
     - key: user.email
-      value: "root@{{ ansible_hostname }}"
+      value: "root@{{ ansible_facts['hostname'] }}"
     - key: user.name
-      value: "root@{{ ansible_hostname }}"
+      value: "root@{{ ansible_facts['hostname'] }}"
+
+- name: Create resolved.conf.d directory
+  ansible.builtin.file:
+    path: /etc/systemd/resolved.conf.d
+    state: directory
+    mode: '0755'
 
 - name: Configure stub DNS resolver
   ansible.builtin.copy:
