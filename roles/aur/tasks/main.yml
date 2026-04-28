@@ -64,10 +64,11 @@
     curl -sS https://downloads.1password.com/linux/keys/1password.asc | gpg --import
   changed_when: false
 
-- name: Import helium-browser GPG key by fingerprint
-  ansible.builtin.command: >
-    gpg --keyserver hkps://keyserver.ubuntu.com
-        --recv-keys BE677C1989D35EAB2C5F26C9351601AD01D6378E
+- name: Import helium-browser GPG key from upstream README
+  ansible.builtin.shell: |
+    curl -sS https://raw.githubusercontent.com/imputnet/helium-linux/refs/heads/main/README.md \
+      | awk '/-----BEGIN PGP PUBLIC KEY BLOCK-----/{p=1} p; /-----END PGP PUBLIC KEY BLOCK-----/{p=0}' \
+      | gpg --import
   changed_when: false
 
 - name: Install AUR packages
