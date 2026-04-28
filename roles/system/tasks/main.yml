@@ -54,6 +54,8 @@
       - grub-btrfs
       # pacman cache cleanup
       - pacman-contrib
+      # cron daemon
+      - cronie
     state: present
 
 - name: Initialize etckeeper
