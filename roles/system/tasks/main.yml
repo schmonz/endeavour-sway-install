@@ -249,6 +249,12 @@
     - paccache.timer
     - cronie
 
+- name: Ensure tailscale group exists
+  ansible.builtin.group:
+    name: tailscale
+    system: yes
+    state: present
+
 - name: Add target user to tailscale group
   ansible.builtin.user:
     name: "{{ target_user }}"
