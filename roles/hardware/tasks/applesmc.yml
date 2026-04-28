@@ -1,6 +1,6 @@
 ---
 - name: Install mbpfan
-  community.general.aur:
+  kewlfft.aur.aur:
     name: mbpfan
     use: yay
     state: present

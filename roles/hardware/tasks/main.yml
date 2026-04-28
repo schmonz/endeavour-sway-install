@@ -1,32 +1,32 @@
 ---
-- include_tasks: avs_audio.yml
+- import_tasks: avs_audio.yml
   when: has_avs_audio
 
-- include_tasks: cros_fkeys.yml
+- import_tasks: cros_fkeys.yml
   when: has_cros_fkeys
 
-- include_tasks: ambient_light.yml
+- import_tasks: ambient_light.yml
   when: has_ambient_light_sensor
 
-- include_tasks: applesmc.yml
+- import_tasks: applesmc.yml
   when: has_applesmc
 
-- include_tasks: facetimehd.yml
+- import_tasks: facetimehd.yml
   when: has_facetimehd
 
-- include_tasks: phantom_display.yml
+- import_tasks: phantom_display.yml
   when: has_phantom_second_display
 
-- include_tasks: zswap.yml
+- import_tasks: zswap.yml
   when: not has_plenty_of_ram
 
-- include_tasks: software_gl.yml
+- import_tasks: software_gl.yml
   when: not has_gl_capable_gpu
 
-- include_tasks: kbd_backlight.yml
+- import_tasks: kbd_backlight.yml
   when: has_kbd_backlight
 
-- include_tasks: lid_handler.yml
+- import_tasks: lid_handler.yml
   when: not has_lid_events
 
 - name: Reboot after hardware configuration changes

@@ -1,6 +1,6 @@
 ---
 - name: Install FaceTime HD webcam driver
-  community.general.aur:
+  kewlfft.aur.aur:
     name: facetimehd-dkms
     use: yay
     state: present

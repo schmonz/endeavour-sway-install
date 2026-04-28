@@ -1,6 +1,6 @@
 ---
 - name: Install ambient light sensor packages
-  community.general.aur:
+  kewlfft.aur.aur:
     name:
       - iio-sensor-proxy
       - clight

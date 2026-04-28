@@ -22,7 +22,7 @@
     creates: /usr/bin/yay
 
 - name: Install AUR packages
-  community.general.aur:
+  kewlfft.aur.aur:
     name:
       # password manager
       - 1password
