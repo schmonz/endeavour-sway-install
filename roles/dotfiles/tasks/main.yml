@@ -28,5 +28,6 @@
     src: "{{ target_home }}/trees/dotfiles/gitconfig"
     dest: /root/.gitconfig
     state: link
+    force: yes
   become: yes
   become_user: root
