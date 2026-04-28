@@ -9,8 +9,8 @@ ConditionPathExists=/usr/local/lib/endeavour-setup/site.yml
 Type=oneshot
 ExecStart=ansible-playbook /usr/local/lib/endeavour-setup/site.yml
 RemainAfterExit=no
-StandardOutput=journal
-StandardError=journal
+StandardOutput=journal+console
+StandardError=journal+console
 
 [Install]
 WantedBy=multi-user.target
