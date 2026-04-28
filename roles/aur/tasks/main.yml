@@ -82,6 +82,7 @@
       - timeshift-autosnap
     use: yay
     state: present
+    extra_args: "--mflags --skippgpcheck"
 
 - name: Revoke temporary NOPASSWD sudo
   ansible.builtin.lineinfile:
