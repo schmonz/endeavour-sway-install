@@ -47,6 +47,18 @@
       keyserver-options auto-key-retrieve
     mode: '0600'
 
+- name: Configure dirmngr keyserver (GPG 2.1+)
+  ansible.builtin.copy:
+    dest: "{{ target_home }}/.gnupg/dirmngr.conf"
+    content: |
+      keyserver hkps://keyserver.ubuntu.com
+    mode: '0600'
+
+- name: Restart dirmngr to pick up new keyserver config
+  ansible.builtin.command: gpgconf --kill dirmngr
+  changed_when: false
+  failed_when: false
+
 - name: Import 1Password GPG key
   ansible.builtin.shell: |
     curl -sS https://downloads.1password.com/linux/keys/1password.asc | gpg --import
