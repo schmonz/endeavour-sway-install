@@ -79,7 +79,8 @@
   community.general.git_config:
     name: "{{ item.key }}"
     value: "{{ item.value }}"
-    scope: global
+    scope: file
+    file: /root/.gitconfig
   loop:
     - key: user.email
       value: "root@{{ ansible_facts['hostname'] }}"
