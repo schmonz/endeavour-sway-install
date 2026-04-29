@@ -7,6 +7,6 @@
   become_user: "{{ target_user }}"
 
 - name: Install Chromebook F-keys
-  ansible.builtin.command: ./install.sh
+  ansible.builtin.shell: echo "N" | ./install.sh
   args:
     chdir: "{{ target_home }}/trees/cros-keyboard-map"
