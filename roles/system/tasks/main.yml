@@ -302,9 +302,3 @@
   args:
     creates: "{{ target_home }}/.config/eos-update-notifier.conf"
   become_user: "{{ target_user }}"
-
-- name: Mark setup complete
-  ansible.builtin.file:
-    path: /etc/endeavour-setup-complete
-    state: touch
-    mode: '0644'

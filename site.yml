@@ -55,3 +55,12 @@
     - dotfiles
     - aur
     - desktop
+
+  post_tasks:
+    - name: Mark setup complete
+      ansible.builtin.file:
+        path: /etc/endeavour-setup-complete
+        state: touch
+        mode: '0644'
+      become: yes
+      become_user: root
