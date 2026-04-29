@@ -12,4 +12,3 @@
       | ./setup-audio --force-avs-install
   args:
     chdir: "{{ target_home }}/trees/chromebook-linux-audio"
-  become_user: "{{ target_user }}"
