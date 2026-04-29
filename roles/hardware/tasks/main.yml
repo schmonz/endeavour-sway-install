@@ -29,9 +29,3 @@
 - import_tasks: lid_handler.yml
   when: not has_lid_events
 
-- name: Reboot after hardware configuration changes
-  ansible.builtin.reboot:
-  when: >
-    has_phantom_second_display or
-    not has_plenty_of_ram or
-    (not has_powerbutton_events and udev_reload_result is defined)
