@@ -19,5 +19,5 @@ pacman -S --noconfirm --needed ansible git
 
 [[ -d "$DEST/.git" ]] || git clone "$REPO_URL" "$DEST"
 
-install -m 644 "$DEST/endeavour-setup.service" /etc/systemd/system/endeavour-setup.service
+ln -sf "$DEST/endeavour-setup.service" /etc/systemd/system/endeavour-setup.service
 systemctl enable endeavour-setup.service
