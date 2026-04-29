@@ -57,6 +57,12 @@
     - desktop
 
   post_tasks:
+    - name: Set tailscale operator
+      ansible.builtin.command: "tailscale set --operator={{ target_user }}"
+      changed_when: false
+      become: yes
+      become_user: root
+
     - name: Mark setup complete
       ansible.builtin.file:
         path: /etc/endeavour-setup-complete
