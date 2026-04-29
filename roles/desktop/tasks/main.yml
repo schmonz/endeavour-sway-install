@@ -134,6 +134,6 @@
     path: "{{ target_home }}/.config/sway/config.d/autostart_applications"
     line: "exec {{ item }}"
   loop:
-    - 1password
+    - env XDG_CURRENT_DESKTOP=GNOME 1password
     - localsend --hidden
     - tailscale-systray
