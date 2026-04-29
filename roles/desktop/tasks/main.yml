@@ -6,9 +6,16 @@
     mode: '0755'
   loop:
     - .config/gtklock
+    - .config/environment.d
     - .local/share/applications/kde4
     - .config/net.imput.helium/Default
     - .config/chromium/Default
+
+- name: Configure sudo askpass (seahorse ssh-askpass, already installed)
+  ansible.builtin.copy:
+    dest: "{{ target_home }}/.config/environment.d/50-askpass.conf"
+    content: "SUDO_ASKPASS=/usr/lib/seahorse/ssh-askpass\n"
+    mode: '0644'
 
 - name: Configure gtklock (no unauthenticated power buttons)
   ansible.builtin.template:
