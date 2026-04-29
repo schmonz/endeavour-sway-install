@@ -243,6 +243,8 @@
       content: "#!/bin/sh\nexec wl-copy \"$@\"\n"
     - name: pbpaste
       content: "#!/bin/sh\nexec wl-paste --no-newline \"$@\"\n"
+    - name: tailscale-systray
+      content: "#!/bin/sh\npkill -f 'tailscale systray' 2>/dev/null\nexec tailscale systray\n"
 
 - name: Enable system services
   ansible.builtin.systemd:

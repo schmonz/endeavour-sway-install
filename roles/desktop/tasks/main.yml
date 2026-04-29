@@ -136,4 +136,4 @@
   loop:
     - 1password
     - localsend --hidden
-    - tailscale systray
+    - tailscale-systray
