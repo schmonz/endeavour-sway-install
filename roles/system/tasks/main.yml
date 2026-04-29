@@ -250,6 +250,11 @@
     - paccache.timer
     - cronie
 
+- name: Wait for tailscaled socket
+  ansible.builtin.wait_for:
+    path: /run/tailscale/tailscaled.sock
+    timeout: 30
+
 - name: Set tailscale operator
   ansible.builtin.command: "tailscale set --operator={{ target_user }}"
   changed_when: false
