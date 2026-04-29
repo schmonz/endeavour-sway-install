@@ -303,7 +303,8 @@
     creates: "{{ target_home }}/.config/eos-update-notifier.conf"
   become_user: "{{ target_user }}"
 
-- name: Disable endeavour-setup service
-  ansible.builtin.systemd:
-    name: endeavour-setup.service
-    enabled: no
+- name: Mark setup complete
+  ansible.builtin.file:
+    path: /etc/endeavour-setup-complete
+    state: touch
+    mode: '0644'

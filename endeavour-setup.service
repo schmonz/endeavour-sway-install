@@ -4,6 +4,7 @@ After=network-online.target nss-lookup.target systemd-user-sessions.service
 Before=greetd.service
 Wants=network-online.target nss-lookup.target
 ConditionPathExists=/usr/local/lib/endeavour-setup/site.yml
+ConditionPathExists=!/etc/endeavour-setup-complete
 
 [Service]
 Type=oneshot
