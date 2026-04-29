@@ -113,13 +113,26 @@
     path: "{{ target_home }}/.config/sway/config.d/application_defaults"
     line: 'for_window [app_id="helium"] inhibit_idle fullscreen'
 
-- name: Prompt to install 1Password browser extension on first Sway login
+- name: Write post-setup notes
+  ansible.builtin.copy:
+    dest: "{{ target_home }}/.config/endeavour-post-setup.txt"
+    content: |
+      Manual steps remaining:
+
+        tailscale up
+        tailscale set --accept-dns=true
+        tailscale set --accept-routes
+        rclone config (optional)
+    mode: '0644'
+
+- name: Show post-setup notes and 1Password extension prompt on first Sway login
   ansible.builtin.lineinfile:
     path: "{{ target_home }}/.config/sway/config.d/autostart_applications"
     line: >-
-      exec sh -c 'test -f ~/.config/.1password-extension-prompted || {
+      exec sh -c 'test -f ~/.config/.setup-notes-shown || {
       xdg-open "https://chromewebstore.google.com/detail/1password-%E2%80%93-password-mana/aeblfdkhhhdcdjpifhhbdiojplfjncoa" &
-      touch ~/.config/.1password-extension-prompted; }'
+      foot sh -c "cat ~/.config/endeavour-post-setup.txt; echo; read -r -p \"Press Enter to dismiss.\" _" &&
+      touch ~/.config/.setup-notes-shown; }'
 
 - name: Add sway autostart entries
   ansible.builtin.lineinfile:

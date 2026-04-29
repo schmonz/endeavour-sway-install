@@ -7,7 +7,8 @@ ConditionPathExists=/usr/local/lib/endeavour-setup/site.yml
 
 [Service]
 Type=oneshot
-ExecStart=ansible-playbook /usr/local/lib/endeavour-setup/site.yml
+ExecStart=systemd-inhibit --what=sleep --who=endeavour-setup --why="First-boot Ansible provisioning in progress" --mode=block \
+    ansible-playbook /usr/local/lib/endeavour-setup/site.yml
 RemainAfterExit=no
 StandardOutput=journal+console
 StandardError=journal+console
