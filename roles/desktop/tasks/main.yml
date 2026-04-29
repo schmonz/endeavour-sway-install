@@ -136,10 +136,4 @@
   loop:
     - 1password
     - localsend --hidden
-
-- name: Add sway singleton autostart entries
-  ansible.builtin.lineinfile:
-    path: "{{ target_home }}/.config/sway/config.d/autostart_applications"
-    line: "exec sh -c \"pkill -f '{{ item }}' 2>/dev/null; {{ item }}\""
-  loop:
     - tailscale systray
