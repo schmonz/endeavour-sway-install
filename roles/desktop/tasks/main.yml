@@ -34,11 +34,6 @@
     regexp: '\bhtop\b'
     replace: btop
 
-- name: Configure waybar btop module name
-  ansible.builtin.replace:
-    path: "{{ target_home }}/.config/sway/config.d/application_defaults"
-    regexp: '\bwaybar_htop\b'
-    replace: waybar_btop
 
 - name: Enable foot browser launch
   ansible.builtin.lineinfile:
