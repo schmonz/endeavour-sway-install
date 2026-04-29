@@ -16,6 +16,15 @@
     dest: "{{ target_home }}/.config/gtklock/config.ini"
     mode: '0644'
 
+- name: Remove stock swayidle entries superseded by our configuration
+  ansible.builtin.lineinfile:
+    path: "{{ target_home }}/.config/sway/config.d/autostart_applications"
+    regexp: "{{ item }}"
+    state: absent
+  loop:
+    - '^exec swayidle idlehint'
+    - '^exec_always swayidle -w before-sleep'
+
 - name: Configure swayidle
   ansible.builtin.blockinfile:
     path: "{{ target_home }}/.config/sway/config.d/autostart_applications"
