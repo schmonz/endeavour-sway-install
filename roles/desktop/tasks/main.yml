@@ -113,6 +113,14 @@
     path: "{{ target_home }}/.config/sway/config.d/application_defaults"
     line: 'for_window [app_id="helium"] inhibit_idle fullscreen'
 
+- name: Prompt to install 1Password browser extension on first Sway login
+  ansible.builtin.lineinfile:
+    path: "{{ target_home }}/.config/sway/config.d/autostart_applications"
+    line: >-
+      exec sh -c 'test -f ~/.config/.1password-extension-prompted || {
+      xdg-open "https://chromewebstore.google.com/detail/1password-%E2%80%93-password-mana/aeblfdkhhhdcdjpifhhbdiojplfjncoa" &
+      touch ~/.config/.1password-extension-prompted; }'
+
 - name: Add sway autostart entries
   ansible.builtin.lineinfile:
     path: "{{ target_home }}/.config/sway/config.d/autostart_applications"
