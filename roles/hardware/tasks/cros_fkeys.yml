@@ -6,6 +6,11 @@
     update: no
   become_user: "{{ target_user }}"
 
+- name: Install keyd
+  community.general.pacman:
+    name: keyd
+    state: present
+
 - name: Install Chromebook F-keys
   ansible.builtin.shell: echo "N" | ./install.sh
   args:
