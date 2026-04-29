@@ -1,4 +1,8 @@
 ---
+- name: Rank mirrors for fastest downloads
+  ansible.builtin.command: reflector --latest 20 --sort rate --save /etc/pacman.d/mirrorlist
+  changed_when: false
+
 - name: Remove firefox
   community.general.pacman:
     name: firefox
