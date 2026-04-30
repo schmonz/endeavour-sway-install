@@ -1,4 +1,12 @@
 ---
+- name: Grant NOPASSWD pacman for AUR installs
+  ansible.builtin.lineinfile:
+    path: /etc/sudoers
+    line: "{{ target_user }} ALL=(ALL) NOPASSWD: /usr/bin/pacman"
+    validate: visudo -cf %s
+  become: yes
+  become_user: root
+
 - import_tasks: avs_audio.yml
   when: has_avs_audio
 
@@ -28,4 +36,13 @@
 
 - import_tasks: lid_handler.yml
   when: not has_lid_events
+
+- name: Revoke NOPASSWD pacman
+  ansible.builtin.lineinfile:
+    path: /etc/sudoers
+    line: "{{ target_user }} ALL=(ALL) NOPASSWD: /usr/bin/pacman"
+    state: absent
+    validate: visudo -cf %s
+  become: yes
+  become_user: root
 

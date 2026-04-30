@@ -12,6 +12,14 @@
     path: /usr/bin/yay
   register: _yay_bin
 
+- name: Grant NOPASSWD pacman for AUR installs
+  ansible.builtin.lineinfile:
+    path: /etc/sudoers
+    line: "{{ target_user }} ALL=(ALL) NOPASSWD: /usr/bin/pacman"
+    validate: visudo -cf %s
+  become: yes
+  become_user: root
+
 - name: Clone yay-bin
   ansible.builtin.git:
     repo: https://aur.archlinux.org/yay-bin.git
@@ -24,14 +32,6 @@
   args:
     chdir: /tmp/yay-bin
   when: not _yay_bin.stat.exists
-
-- name: Grant temporary NOPASSWD sudo for AUR installs
-  ansible.builtin.lineinfile:
-    path: /etc/sudoers
-    line: "{{ target_user }} ALL=(ALL) NOPASSWD: ALL"
-    validate: visudo -cf %s
-  become: yes
-  become_user: root
 
 - name: Ensure ~/.gnupg exists with correct permissions
   ansible.builtin.file:
@@ -103,10 +103,10 @@
     state: present
     extra_args: "--mflags --skippgpcheck"
 
-- name: Revoke temporary NOPASSWD sudo
+- name: Revoke NOPASSWD pacman
   ansible.builtin.lineinfile:
     path: /etc/sudoers
-    line: "{{ target_user }} ALL=(ALL) NOPASSWD: ALL"
+    line: "{{ target_user }} ALL=(ALL) NOPASSWD: /usr/bin/pacman"
     state: absent
     validate: visudo -cf %s
   become: yes
