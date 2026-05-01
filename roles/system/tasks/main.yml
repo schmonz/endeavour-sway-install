@@ -136,6 +136,12 @@
     follow: no
   notify: etckeeper commit
 
+- name: Create /etc/X11/xorg.conf.d
+  ansible.builtin.file:
+    path: /etc/X11/xorg.conf.d
+    state: directory
+    mode: '0755'
+
 - name: Configure macOS-style keyboard layout
   ansible.builtin.copy:
     dest: /etc/X11/xorg.conf.d/00-keyboard.conf
@@ -234,6 +240,12 @@
     - reload udev
     - etckeeper commit
 
+- name: Create /etc/systemd/system-sleep
+  ansible.builtin.file:
+    path: /etc/systemd/system-sleep
+    state: directory
+    mode: '0755'
+
 - name: Install FUSE abort sleep hook
   ansible.builtin.copy:
     src: "{{ setup_dir }}/unmount-fuse-before-sleep.bash"
@@ -249,6 +261,12 @@
     mode: '0755'
     remote_src: yes
   notify: etckeeper commit
+
+- name: Create /etc/systemd/system/systemd-suspend.service.d
+  ansible.builtin.file:
+    path: /etc/systemd/system/systemd-suspend.service.d
+    state: directory
+    mode: '0755'
 
 - name: Disable systemd user-session freeze before suspend
   ansible.builtin.copy:
