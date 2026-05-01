@@ -127,14 +127,14 @@
 
 - name: Write post-setup notes
   # accept-dns and accept-routes require an authenticated tailscale session, so
-  # they can't run during setup. --operator grants CLI authorization without sudo.
+  # they can't run during setup.
   ansible.builtin.copy:
     dest: "{{ target_home }}/.config/endeavour-post-setup.txt"
     content: |
       Manual steps remaining:
 
         tailscale up
-        tailscale set --accept-dns=true --accept-routes --operator={{ target_user }}
+        tailscale set --accept-dns=true --accept-routes
         rclone config (optional)
     mode: '0644'
 
