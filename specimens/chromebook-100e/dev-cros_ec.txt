@@ -1,1 +1,0 @@
-/dev/cros_ec

@@ -1,24 +1,195 @@
 ---
-- name: Run hardware probes
-  ansible.builtin.command: "{{ setup_dir }}/machine-caps.bash --emit-json"
-  register: _caps
+# Defaults — overridden below when hardware is detected.
+- name: Set hardware fact defaults
+  ansible.builtin.set_fact:
+    has_resume: true
+    has_lid_events: true
+    has_powerbutton_events: true
+    has_avs_audio: false
+    has_cros_fkeys: false
+    has_ambient_light_sensor: false
+    has_kbd_backlight: false
+    has_applesmc: false
+    has_facetimehd: false
+    has_phantom_second_display: false
+    has_plenty_of_ram: false
+    has_ir_receiver: false
+    has_thinkpad_hardware: false
+    has_gl_capable_gpu: true
+
+# ── Shared inputs (reused by multiple probes) ─────────────────────────────────
+
+- name: Stat /proc/acpi/button/lid/LID0/state
+  ansible.builtin.stat:
+    path: /proc/acpi/button/lid/LID0/state
+  register: _lid_state
+
+- name: Stat /dev/cros_ec
+  ansible.builtin.stat:
+    path: /dev/cros_ec
+  register: _dev_cros_ec
+
+- name: Stat /sys/class/chromeos/cros_ec
+  ansible.builtin.stat:
+    path: /sys/class/chromeos/cros_ec
+  register: _sys_cros_ec
+
+- name: Collect PCI device list
+  ansible.builtin.command: lspci -n
+  register: _lspci
   changed_when: false
 
-- name: Load machine capability facts
+# ── Probes ────────────────────────────────────────────────────────────────────
+
+# MrChromebox firmware replaces the stock EFI; suspend/resume not supported.
+- name: Detect has_resume
   ansible.builtin.set_fact:
-    has_resume: "{{ caps['has_resume'] }}"
-    has_lid_events: "{{ caps['has_lid_events'] }}"
-    has_powerbutton_events: "{{ caps['has_powerbutton_events'] }}"
-    has_avs_audio: "{{ caps['has_avs_audio'] }}"
-    has_cros_fkeys: "{{ caps['has_cros_fkeys'] }}"
-    has_ambient_light_sensor: "{{ caps['has_ambient_light_sensor'] }}"
-    has_kbd_backlight: "{{ caps['has_kbd_backlight'] }}"
-    has_applesmc: "{{ caps['has_applesmc'] }}"
-    has_facetimehd: "{{ caps['has_facetimehd'] }}"
-    has_phantom_second_display: "{{ caps['has_phantom_second_display'] }}"
-    has_plenty_of_ram: "{{ caps['has_plenty_of_ram'] }}"
-    has_ir_receiver: "{{ caps['has_ir_receiver'] }}"
-    has_thinkpad_hardware: "{{ caps['has_thinkpad_hardware'] }}"
-    has_gl_capable_gpu: "{{ caps['has_gl_capable_gpu'] }}"
-  vars:
-    caps: "{{ _caps.stdout | from_json }}"
+    has_resume: false
+  when: ansible_facts.bios_version | default('') is match('MrChromebox.*')
+
+# Lid events: present only if LID0 ACPI node exists, Chrome EC is absent, and
+# the kernel exposes a "Lid Switch" input device. On Chromebooks the EC handles
+# lid events in firmware — no kernel input events are generated.
+- name: Check for Lid Switch input device
+  ansible.builtin.shell: |
+    grep -rql "Lid Switch" /sys/class/input/input*/name 2>/dev/null && echo true || echo false
+  register: _lid_switch
+  changed_when: false
+  when: _lid_state.stat.exists and not _dev_cros_ec.stat.exists
+
+- name: Detect has_lid_events
+  ansible.builtin.set_fact:
+    has_lid_events: false
+  when: >
+    _lid_state.stat.exists and (
+      _dev_cros_ec.stat.exists or
+      (_lid_switch.stdout | default('false')) == 'false'
+    )
+
+# Power button: logind grabs the LNXPWRBN device exclusively (power-switch udev
+# tag). A non-LNXPWRBN "Power Button" (e.g. Apple firmware) bypasses that grab,
+# so events still reach the compositor even if LNXPWRBN is tagged.
+- name: Check for non-LNXPWRBN power button
+  ansible.builtin.shell: |
+    for d in /sys/class/input/input*/; do
+      name=$(cat "${d}name" 2>/dev/null) || continue
+      phys=$(cat "${d}phys" 2>/dev/null) || continue
+      [[ "$name" == "Power Button" && "$phys" != *LNXPWRBN* ]] && { echo true; exit; }
+    done
+    echo false
+  register: _non_lnx_power_button
+  changed_when: false
+
+- name: Check if LNXPWRBN button carries power-switch udev tag
+  ansible.builtin.shell: |
+    for d in /sys/class/input/input*/; do
+      name=$(cat "${d}name" 2>/dev/null) || continue
+      phys=$(cat "${d}phys" 2>/dev/null) || continue
+      [[ "$name" == "Power Button" && "$phys" == *LNXPWRBN* ]] || continue
+      for ev in "${d}"event*/; do
+        udevadm info "/dev/input/$(basename "$ev")" 2>/dev/null \
+          | grep -q "power-switch" && { echo true; exit; }
+      done
+    done
+    echo false
+  register: _lnx_power_switch_tagged
+  changed_when: false
+  when: _non_lnx_power_button.stdout == 'false'
+
+- name: Detect has_powerbutton_events
+  ansible.builtin.set_fact:
+    has_powerbutton_events: false
+  when:
+    - _non_lnx_power_button.stdout == 'false'
+    - (_lnx_power_switch_tagged.stdout | default('false')) == 'true'
+
+# Chrome EC present → Chromebook: kernel emits no F-key events, and AVS audio setup needed.
+- name: Detect has_cros_fkeys and has_avs_audio
+  ansible.builtin.set_fact:
+    has_cros_fkeys: true
+    has_avs_audio: true
+  when: _dev_cros_ec.stat.exists or _sys_cros_ec.stat.exists
+
+- name: Check for IIO illuminance sensor
+  ansible.builtin.shell: |
+    ls /sys/bus/iio/devices/*/in_illuminance* 2>/dev/null | grep -q . && echo true || echo false
+  register: _als
+  changed_when: false
+
+- name: Detect has_ambient_light_sensor
+  ansible.builtin.set_fact:
+    has_ambient_light_sensor: true
+  when: _als.stdout == 'true'
+
+- name: Check for keyboard backlight LED
+  ansible.builtin.shell: |
+    ls /sys/class/leds/ 2>/dev/null | grep -qiE "kbd|keyboard" && echo true || echo false
+  register: _kbd_backlight
+  changed_when: false
+
+- name: Detect has_kbd_backlight
+  ansible.builtin.set_fact:
+    has_kbd_backlight: true
+  when: _kbd_backlight.stdout == 'true'
+
+# Apple Mac hardware needs mbpfan for fan control.
+- name: Detect has_applesmc
+  ansible.builtin.set_fact:
+    has_applesmc: true
+  when:
+    - ansible_facts.system_vendor | default('') == "Apple Inc."
+    - ansible_facts.product_name | default('') is match('MacBook.*')
+
+# Broadcom FaceTime HD camera (PCI 14e4:1570) needs out-of-tree driver.
+- name: Detect has_facetimehd
+  ansible.builtin.set_fact:
+    has_facetimehd: true
+  when: "'14e4:1570' in _lspci.stdout"
+
+# MacBookPro5,2 exposes a phantom LVDS-2 output that confuses display layout.
+# Requires GPU driver to be loaded — may be false in a pre-driver environment.
+- name: Check for phantom LVDS-2 display
+  ansible.builtin.shell: |
+    ls /sys/class/drm/ 2>/dev/null | grep -q "LVDS-2" && echo true || echo false
+  register: _phantom
+  changed_when: false
+
+- name: Detect has_phantom_second_display
+  ansible.builtin.set_fact:
+    has_phantom_second_display: true
+  when: _phantom.stdout == 'true'
+
+# >= 8 GB RAM → skip zswap.
+- name: Detect has_plenty_of_ram
+  ansible.builtin.set_fact:
+    has_plenty_of_ram: true
+  when: ansible_facts.memtotal_mb >= 8192
+
+- name: Check for LIRC infrared receiver
+  ansible.builtin.shell: |
+    ls /dev/lirc* 2>/dev/null | grep -q . && echo true || echo false
+  register: _lirc
+  changed_when: false
+
+- name: Detect has_ir_receiver
+  ansible.builtin.set_fact:
+    has_ir_receiver: true
+  when: _lirc.stdout == 'true'
+
+# Lenovo ThinkPad SMBIOS — TrackPoint buttons, smart card, ThinkVantage button,
+# fingerprint reader are ThinkPad-specific.
+- name: Detect has_thinkpad_hardware
+  ansible.builtin.set_fact:
+    has_thinkpad_hardware: true
+  when:
+    - ansible_facts.system_vendor | default('') == "LENOVO"
+    - >
+      'ThinkPad' in (ansible_facts.product_name | default('')) or
+      'ThinkPad' in (ansible_facts.product_version | default(''))
+
+# r300-family ATI/AMD GPUs cannot drive modern OpenGL; need llvmpipe.
+# 1002:5b6x = RV370 (Radeon X300/X600); 1002:7145 = M26 (Mobility Radeon X1400)
+- name: Detect has_gl_capable_gpu
+  ansible.builtin.set_fact:
+    has_gl_capable_gpu: false
+  when: _lspci.stdout | regex_search('1002:(5b6|7145)')

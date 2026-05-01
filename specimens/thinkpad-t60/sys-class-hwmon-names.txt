@@ -1,5 +1,0 @@
-hwmon0	AC
-hwmon1	acpitz
-hwmon2	BAT0
-hwmon3	thinkpad
-hwmon4	coretemp
