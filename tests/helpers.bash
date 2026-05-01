@@ -5,7 +5,7 @@ load_script() {
     warn()   { true; }
     inform() { true; }
     # shellcheck disable=SC1090
-    source "$SCRIPT_DIR/endeavour-sway-install.bash" || true
+    source "$SCRIPT_DIR/machine-caps.bash" || true
 }
 
 need_specimen() {
