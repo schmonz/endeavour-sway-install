@@ -21,4 +21,8 @@ https://raw.githubusercontent.com/schmonz/endeavour-sway-install/main/bootstrap.
 
 ## Which customizations?
 
-See the Ansible config bits.
+- **Apps**: 1Password, Helium browser (default), Tailscale, LocalSend, Discord, Signal, Slack, Zoom, Teams, LibreOffice, rclone, CLion, Claude Code + Desktop, btop, tmux, etckeeper, and more
+- **System**: systemd-resolved with Cloudflare DNS-over-TLS + DNSSEC; Tailscale with firewall; CUPS printing; etckeeper for `/etc`; reflector-sorted mirrors; Sway autologin via greetd
+- **Desktop**: macOS-style keyboard layout; Helium replaces Firefox as default browser; gtklock screen locker; custom swayidle; waybar uses btop; 1Password, Tailscale, and LocalSend autostarted; gnome-keyring unlocked at login; `pbcopy`/`pbpaste` wrappers via `wl-copy`/`wl-paste`
+- **Hardware** (autodetected per machine): Apple fan control and FaceTime HD camera driver; Chromebook function keys and AVS audio; phantom second display fix; software GL for old ATI GPUs; zswap for low-RAM machines; ambient light sensor; keyboard backlight; lid and power-button handling
+- **Dotfiles**: `gitconfig` and `tmux.conf` symlinked from [schmonz/dotfiles](https://github.com/schmonz/dotfiles)
