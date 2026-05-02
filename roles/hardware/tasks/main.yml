@@ -16,10 +16,6 @@
       ansible.builtin.import_tasks: cros_fkeys.yml
       when: has_cros_fkeys
 
-    - name: Import ambient light sensor tasks
-      ansible.builtin.import_tasks: ambient_light.yml
-      when: has_ambient_light_sensor
-
     - name: Import Apple SMC tasks
       ansible.builtin.import_tasks: applesmc.yml
       when: has_applesmc
