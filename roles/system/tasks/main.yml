@@ -124,6 +124,8 @@
     - key: user.name
       value: "root@{{ ansible_facts['hostname'] }}"
 
+- meta: flush_handlers
+
 - name: Symlink resolv.conf to stub resolver
   ansible.builtin.file:
     src: /run/systemd/resolve/stub-resolv.conf
@@ -152,6 +154,8 @@
     mode: '0644'
   notify: etckeeper commit
 
+- meta: flush_handlers
+
 - name: Create /etc/1password directory
   ansible.builtin.file:
     path: /etc/1password
@@ -174,6 +178,8 @@
     replace: 'ShowHowAboutUpdates=notify+tray'
   failed_when: false
   notify: etckeeper commit
+
+- meta: flush_handlers
 
 - name: Create logind.conf.d directory
   ansible.builtin.file:
@@ -237,6 +243,8 @@
     - reload udev
     - etckeeper commit
 
+- meta: flush_handlers
+
 - name: Create /etc/systemd/system-sleep
   ansible.builtin.file:
     path: /etc/systemd/system-sleep
@@ -273,6 +281,8 @@
       Environment="SYSTEMD_SLEEP_FREEZE_USER_SESSIONS=false"
     mode: '0644'
   notify: etckeeper commit
+
+- meta: flush_handlers
 
 - name: Install pbcopy / pbpaste
   ansible.builtin.copy:
@@ -336,6 +346,8 @@
       user = "{{ target_user }}"
     marker: "# {mark} ANSIBLE MANAGED BLOCK"
   notify: etckeeper commit
+
+- meta: flush_handlers
 
 - name: Run firmware updates
   ansible.builtin.shell: |
