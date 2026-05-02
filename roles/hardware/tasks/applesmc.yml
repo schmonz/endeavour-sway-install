@@ -4,18 +4,19 @@
     name: mbpfan
     use: yay
     state: present
+  become: true
   become_user: "{{ target_user }}"
 
 - name: Install mbpfan service override
   ansible.builtin.copy:
     src: /usr/lib/systemd/system/mbpfan.service
     dest: /etc/systemd/system/mbpfan.service
-    remote_src: yes
+    remote_src: true
     mode: '0644'
 
 - name: Enable mbpfan
   ansible.builtin.systemd:
     name: mbpfan
-    enabled: yes
+    enabled: true
     state: started
-    daemon_reload: yes
+    daemon_reload: true

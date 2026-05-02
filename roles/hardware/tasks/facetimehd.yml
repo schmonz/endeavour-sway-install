@@ -4,4 +4,5 @@
     name: facetimehd-dkms
     use: yay
     state: present
+  become: true
   become_user: "{{ target_user }}"

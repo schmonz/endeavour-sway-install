@@ -1,0 +1,15 @@
+skip_list:
+  # machine_facts vars are intentionally cross-role shared state (play-scoped facts)
+  - var-naming[no-role-prefix]
+  # all git clones use update: false, so HEAD is cloned once and never re-fetched
+  - latest[git]
+  # some browser preference JSON values are unavoidably long single-line strings
+  - yaml[line-length]
+
+mock_modules:
+  # collections not installed in the lint environment
+  - community.general.pacman
+  - community.general.git_config
+  - community.general.ini_file
+  - ansible.posix.firewalld
+  - kewlfft.aur.aur

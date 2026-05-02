@@ -1,7 +1,10 @@
 ---
 - name: Find keyboard backlight device
-  ansible.builtin.shell: >
+  ansible.builtin.shell: |
+    set -o pipefail
     brightnessctl --list 2>/dev/null | awk -F"'" '/[Kk]eyboard/{print $2; exit}'
+  args:
+    executable: /bin/bash
   register: _kbd_dev
   changed_when: false
   failed_when: false
@@ -20,4 +23,5 @@
     marker: "# {mark} ANSIBLE MANAGED BLOCK: kbd-backlight"
     insertafter: "XF86MonBrightnessDown"
   when: _kbd_dev.stdout != ''
+  become: true
   become_user: "{{ target_user }}"

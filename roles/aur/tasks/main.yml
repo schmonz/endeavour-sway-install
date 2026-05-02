@@ -4,7 +4,7 @@
     name:
       - base-devel
     state: present
-  become: yes
+  become: true
   become_user: root
 
 - name: Check if yay is installed
@@ -17,10 +17,10 @@
     path: /etc/sudoers
     line: "{{ target_user }} ALL=(ALL) NOPASSWD: /usr/bin/pacman"
     validate: visudo -cf %s
-  become: yes
+  become: true
   become_user: root
 
-- block:
+- block: # noqa: name[missing]
     - name: Clone yay-bin
       ansible.builtin.git:
         repo: https://aur.archlinux.org/yay-bin.git
@@ -33,6 +33,7 @@
       args:
         chdir: /tmp/yay-bin
       when: not _yay_bin.stat.exists
+      changed_when: not _yay_bin.stat.exists
 
     - name: Ensure ~/.gnupg exists with correct permissions
       ansible.builtin.file:
@@ -62,14 +63,20 @@
 
     - name: Import 1Password GPG key from upstream URL
       ansible.builtin.shell: |
+        set -o pipefail
         curl -sS https://downloads.1password.com/linux/keys/1password.asc | gpg --import
+      args:
+        executable: /bin/bash
       changed_when: false
 
     - name: Import helium-browser GPG key from upstream README
       ansible.builtin.shell: |
+        set -o pipefail
         curl -sS https://raw.githubusercontent.com/imputnet/helium-linux/refs/heads/main/README.md \
           | awk '/-----BEGIN PGP PUBLIC KEY BLOCK-----/{p=1} p; /-----END PGP PUBLIC KEY BLOCK-----/{p=0}' \
           | gpg --import
+      args:
+        executable: /bin/bash
       changed_when: false
 
     - name: Install AUR packages
@@ -111,5 +118,5 @@
         line: "{{ target_user }} ALL=(ALL) NOPASSWD: /usr/bin/pacman"
         state: absent
         validate: visudo -cf %s
-      become: yes
+      become: true
       become_user: root

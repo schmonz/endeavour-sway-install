@@ -82,6 +82,7 @@
 
 - name: Check if LNXPWRBN button carries power-switch udev tag
   ansible.builtin.shell: |
+    set -o pipefail
     for d in /sys/class/input/input*/; do
       name=$(cat "${d}name" 2>/dev/null) || continue
       phys=$(cat "${d}phys" 2>/dev/null) || continue
@@ -92,6 +93,8 @@
       done
     done
     echo false
+  args:
+    executable: /bin/bash
   register: _lnx_power_switch_tagged
   changed_when: false
   when: _non_lnx_power_button.stdout == 'false'
@@ -112,7 +115,10 @@
 
 - name: Check for IIO illuminance sensor
   ansible.builtin.shell: |
+    set -o pipefail
     ls /sys/bus/iio/devices/*/in_illuminance* 2>/dev/null | grep -q . && echo true || echo false
+  args:
+    executable: /bin/bash
   register: _als
   changed_when: false
 
@@ -123,7 +129,10 @@
 
 - name: Check for keyboard backlight LED
   ansible.builtin.shell: |
+    set -o pipefail
     ls /sys/class/leds/ 2>/dev/null | grep -qiE "kbd|keyboard" && echo true || echo false
+  args:
+    executable: /bin/bash
   register: _kbd_backlight
   changed_when: false
 
@@ -150,7 +159,10 @@
 # Requires GPU driver to be loaded — may be false in a pre-driver environment.
 - name: Check for phantom LVDS-2 display
   ansible.builtin.shell: |
+    set -o pipefail
     ls /sys/class/drm/ 2>/dev/null | grep -q "LVDS-2" && echo true || echo false
+  args:
+    executable: /bin/bash
   register: _phantom
   changed_when: false
 
@@ -167,7 +179,10 @@
 
 - name: Check for LIRC infrared receiver
   ansible.builtin.shell: |
+    set -o pipefail
     ls /dev/lirc* 2>/dev/null | grep -q . && echo true || echo false
+  args:
+    executable: /bin/bash
   register: _lirc
   changed_when: false
 

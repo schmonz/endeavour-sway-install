@@ -65,13 +65,14 @@
     replace: "exec xdg-open https://"
 
 - name: Disable EOS greeter
-  ansible.builtin.ini_file:
+  community.general.ini_file:
     path: "{{ target_home }}/.config/EOS-greeter.conf"
     section: null
     option: Greeter
     value: disable
-    no_extra_spaces: yes
-    create: yes
+    no_extra_spaces: true
+    create: true
+    mode: '0644'
 
 - name: Hide unwanted desktop entries
   ansible.builtin.copy:
@@ -118,7 +119,8 @@
   ansible.builtin.lineinfile:
     path: "{{ target_home }}/.config/zoomus.conf"
     line: enableWaylandShare=true
-    create: yes
+    create: true
+    mode: '0644'
 
 - name: Inhibit idle for helium fullscreen
   ansible.builtin.lineinfile:

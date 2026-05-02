@@ -3,15 +3,18 @@
   ansible.builtin.git:
     repo: https://github.com/WeirdTreeThing/chromebook-linux-audio.git
     dest: "{{ target_home }}/trees/chromebook-linux-audio"
-    update: no
+    update: false
+  become: true
   become_user: "{{ target_user }}"
 
 - name: Run AVS audio setup
   # TODO: not idempotent — reruns every playbook run. Add a creates: guard once
   # we know what artifact setup-audio produces.
   ansible.builtin.shell: |
+    set -o pipefail
     echo "I UNDERSTAND THE RISK OF PERMANENTLY DAMAGING MY SPEAKERS" \
       | ./setup-audio --force-avs-install
   args:
     chdir: "{{ target_home }}/trees/chromebook-linux-audio"
+    executable: /bin/bash
   changed_when: true

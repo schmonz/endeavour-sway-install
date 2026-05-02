@@ -9,6 +9,7 @@
     - .local/bin
     - .config/systemd/user
     - .config/systemd/user/graphical-session.target.wants
+  become: true
   become_user: "{{ target_user }}"
 
 - name: Install sway-lid-handler script
@@ -16,7 +17,8 @@
     src: "{{ setup_dir }}/sway-lid-handler.bash"
     dest: "{{ target_home }}/.local/bin/sway-lid-handler"
     mode: '0755'
-    remote_src: yes
+    remote_src: true
+  become: true
   become_user: "{{ target_user }}"
 
 - name: Write sway-lid-handler systemd user service
@@ -36,6 +38,7 @@
       [Install]
       WantedBy=graphical-session.target
     mode: '0644'
+  become: true
   become_user: "{{ target_user }}"
 
 - name: Enable sway-lid-handler user service
@@ -43,10 +46,12 @@
     path: "{{ target_home }}/.config/systemd/user/graphical-session.target.wants/sway-lid-handler.service"
     src: ../sway-lid-handler.service
     state: link
+  become: true
   become_user: "{{ target_user }}"
 
 - name: Add sway-lid-handler autostart entry
   ansible.builtin.lineinfile:
     path: "{{ target_home }}/.config/sway/config.d/autostart_applications"
     line: "exec systemctl --user start sway-lid-handler.service"
+  become: true
   become_user: "{{ target_user }}"

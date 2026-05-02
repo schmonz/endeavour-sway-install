@@ -5,7 +5,8 @@
   ansible.builtin.git:
     repo: https://github.com/WeirdTreeThing/cros-keyboard-map.git
     dest: "{{ target_home }}/trees/cros-keyboard-map"
-    update: no
+    update: false
+  become: true
   become_user: "{{ target_user }}"
 
 - name: Install keyd
@@ -16,7 +17,10 @@
 - name: Install Chromebook F-keys
   # TODO: not idempotent — reruns every playbook run. Add a creates: guard once
   # we know what artifact install.sh produces.
-  ansible.builtin.shell: echo "N" | ./install.sh
+  ansible.builtin.shell: |
+    set -o pipefail
+    echo "N" | ./install.sh
   args:
     chdir: "{{ target_home }}/trees/cros-keyboard-map"
+    executable: /bin/bash
   changed_when: true

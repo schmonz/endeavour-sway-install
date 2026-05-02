@@ -14,8 +14,8 @@
     src: /run/systemd/resolve/stub-resolv.conf
     dest: /etc/resolv.conf
     state: link
-    force: yes
-    follow: no
+    force: true
+    follow: false
 
 - name: Sort mirrors for reliable downloads
   ansible.builtin.command: reflector --latest 20 --sort rate --save /etc/pacman.d/mirrorlist
@@ -89,7 +89,7 @@
   ansible.builtin.command: etckeeper init
   args:
     creates: /etc/.git
-  notify: etckeeper commit
+  notify: Etckeeper commit
 
 - name: Rename etckeeper branch to hostname
   ansible.builtin.shell: |
@@ -126,16 +126,17 @@
     - key: user.name
       value: "root@{{ ansible_facts['hostname'] }}"
 
-- meta: flush_handlers
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers
 
 - name: Symlink resolv.conf to stub resolver
   ansible.builtin.file:
     src: /run/systemd/resolve/stub-resolv.conf
     dest: /etc/resolv.conf
     state: link
-    force: yes
-    follow: no
-  notify: etckeeper commit
+    force: true
+    follow: false
+  notify: Etckeeper commit
 
 - name: Create /etc/X11/xorg.conf.d
   ansible.builtin.file:
@@ -154,24 +155,25 @@
           Option "XkbVariant" "mac"
       EndSection
     mode: '0644'
-  notify: etckeeper commit
+  notify: Etckeeper commit
 
-- meta: flush_handlers
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers
 
 - name: Create /etc/1password directory
   ansible.builtin.file:
     path: /etc/1password
     state: directory
     mode: '0755'
-  notify: etckeeper commit
+  notify: Etckeeper commit
 
 - name: Allow Helium browser in 1Password
   ansible.builtin.lineinfile:
     path: /etc/1password/custom_allowed_browsers
     line: helium
-    create: yes
+    create: true
     mode: '0644'
-  notify: etckeeper commit
+  notify: Etckeeper commit
 
 - name: Configure eos-update-notifier system tray
   ansible.builtin.replace:
@@ -179,9 +181,10 @@
     regexp: 'ShowHowAboutUpdates=notify$'
     replace: 'ShowHowAboutUpdates=notify+tray'
   failed_when: false
-  notify: etckeeper commit
+  notify: Etckeeper commit
 
-- meta: flush_handlers
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers
 
 - name: Create logind.conf.d directory
   ansible.builtin.file:
@@ -195,13 +198,13 @@
     dest: "/etc/systemd/logind.conf.d/{{ 'power-key' if has_resume else 'disable-sleep' }}.conf"
     mode: '0644'
   notify:
-    - reload logind
-    - etckeeper commit
+    - Reload logind
+    - Etckeeper commit
 
 - name: Mask sleep targets
   ansible.builtin.systemd:
     name: "{{ item }}"
-    masked: yes
+    masked: true
   loop:
     - hibernate.target
     - hybrid-sleep.target
@@ -209,7 +212,7 @@
     - suspend-then-hibernate.target
     - suspend.target
   when: not has_resume
-  notify: etckeeper commit
+  notify: Etckeeper commit
 
 - name: Create sleep.conf.d directory
   ansible.builtin.file:
@@ -229,7 +232,7 @@
       AllowSuspend=no
     mode: '0644'
   when: not has_resume
-  notify: etckeeper commit
+  notify: Etckeeper commit
 
 - name: Write ThinkPad power-button udev rule
   ansible.builtin.copy:
@@ -242,10 +245,11 @@
     mode: '0644'
   when: not has_powerbutton_events
   notify:
-    - reload udev
-    - etckeeper commit
+    - Reload udev
+    - Etckeeper commit
 
-- meta: flush_handlers
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers
 
 - name: Create /etc/systemd/system-sleep
   ansible.builtin.file:
@@ -258,16 +262,16 @@
     src: "{{ setup_dir }}/unmount-fuse-before-sleep.bash"
     dest: /etc/systemd/system-sleep/unmount-fuse-before-sleep
     mode: '0755'
-    remote_src: yes
-  notify: etckeeper commit
+    remote_src: true
+  notify: Etckeeper commit
 
 - name: Install suspend-failed notification script
   ansible.builtin.copy:
     src: "{{ setup_dir }}/notify-suspend-failed.bash"
     dest: /usr/local/bin/notify-suspend-failed
     mode: '0755'
-    remote_src: yes
-  notify: etckeeper commit
+    remote_src: true
+  notify: Etckeeper commit
 
 - name: Create /etc/systemd/system/systemd-suspend.service.d
   ansible.builtin.file:
@@ -282,9 +286,10 @@
       [Service]
       Environment="SYSTEMD_SLEEP_FREEZE_USER_SESSIONS=false"
     mode: '0644'
-  notify: etckeeper commit
+  notify: Etckeeper commit
 
-- meta: flush_handlers
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers
 
 - name: Install pbcopy / pbpaste
   ansible.builtin.copy:
@@ -303,7 +308,7 @@
 - name: Enable system services
   ansible.builtin.systemd:
     name: "{{ item }}"
-    enabled: yes
+    enabled: true
     state: started
   loop:
     - tailscaled
@@ -321,7 +326,7 @@
 - name: Open LocalSend firewall ports
   ansible.posix.firewalld:
     port: "{{ item }}"
-    permanent: yes
+    permanent: true
     state: enabled
   loop:
     - 53317/tcp
@@ -335,7 +340,7 @@
   loop:
     - "auth       optional     pam_gnome_keyring.so"
     - "session    optional     pam_gnome_keyring.so auto_start"
-  notify: etckeeper commit
+  notify: Etckeeper commit
 
 - name: Configure greetd Sway autologin
   ansible.builtin.blockinfile:
@@ -345,9 +350,10 @@
       command = "sway"
       user = "{{ target_user }}"
     marker: "# {mark} ANSIBLE MANAGED BLOCK"
-  notify: etckeeper commit
+  notify: Etckeeper commit
 
-- meta: flush_handlers
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers
 
 - name: Run firmware updates
   ansible.builtin.shell: |
@@ -359,4 +365,5 @@
   ansible.builtin.command: eos-update-notifier -init
   args:
     creates: "{{ target_home }}/.config/eos-update-notifier.conf"
+  become: true
   become_user: "{{ target_user }}"

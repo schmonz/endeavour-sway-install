@@ -10,7 +10,7 @@
     repo: "{{ dotfiles_repo }}"
     dest: "{{ target_home }}/trees/dotfiles"
     version: HEAD
-    update: no
+    update: false
 
 - name: Symlink dotfiles
   ansible.builtin.file:
@@ -28,6 +28,6 @@
     src: "{{ target_home }}/trees/dotfiles/gitconfig"
     dest: /root/.gitconfig
     state: link
-    force: yes
-  become: yes
+    force: true
+  become: true
   become_user: root

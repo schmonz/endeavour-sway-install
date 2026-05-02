@@ -2,8 +2,8 @@
 - name: Detect target user and hardware
   hosts: localhost
   connection: local
-  gather_facts: yes
-  become: yes
+  gather_facts: true
+  become: true
   any_errors_fatal: true
 
   pre_tasks:
@@ -37,8 +37,8 @@
 - name: System configuration
   hosts: localhost
   connection: local
-  gather_facts: no
-  become: yes
+  gather_facts: false
+  become: true
   any_errors_fatal: true
 
   roles:
@@ -49,11 +49,11 @@
 - name: User configuration
   hosts: localhost
   connection: local
-  gather_facts: no
-  become: yes
+  gather_facts: false
+  become: true
   # su rather than sudo: the runner is root, so su requires no password and
   # works regardless of whether target_user has sudo configured yet.
-  become_method: su
+  become_method: ansible.builtin.su
   become_user: "{{ target_user }}"
   any_errors_fatal: true
 
@@ -66,7 +66,7 @@
     - name: Set tailscale operator
       ansible.builtin.command: "tailscale set --operator={{ target_user }}"
       changed_when: false
-      become: yes
+      become: true
       become_user: root
 
     - name: Mark setup complete
@@ -74,5 +74,5 @@
         path: /etc/endeavour-setup-complete
         state: touch
         mode: '0644'
-      become: yes
+      become: true
       become_user: root
