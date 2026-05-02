@@ -20,94 +20,96 @@
   become: yes
   become_user: root
 
-- name: Clone yay-bin
-  ansible.builtin.git:
-    repo: https://aur.archlinux.org/yay-bin.git
-    dest: /tmp/yay-bin
-    version: HEAD
-  when: not _yay_bin.stat.exists
+- block:
+    - name: Clone yay-bin
+      ansible.builtin.git:
+        repo: https://aur.archlinux.org/yay-bin.git
+        dest: /tmp/yay-bin
+        version: HEAD
+      when: not _yay_bin.stat.exists
 
-- name: Build and install yay
-  ansible.builtin.command: makepkg -si --noconfirm
-  args:
-    chdir: /tmp/yay-bin
-  when: not _yay_bin.stat.exists
+    - name: Build and install yay
+      ansible.builtin.command: makepkg -si --noconfirm
+      args:
+        chdir: /tmp/yay-bin
+      when: not _yay_bin.stat.exists
 
-- name: Ensure ~/.gnupg exists with correct permissions
-  ansible.builtin.file:
-    path: "{{ target_home }}/.gnupg"
-    state: directory
-    mode: '0700'
+    - name: Ensure ~/.gnupg exists with correct permissions
+      ansible.builtin.file:
+        path: "{{ target_home }}/.gnupg"
+        state: directory
+        mode: '0700'
 
-- name: Configure GPG to auto-retrieve keys from reliable keyserver
-  ansible.builtin.copy:
-    dest: "{{ target_home }}/.gnupg/gpg.conf"
-    content: |
-      keyserver hkps://keyserver.ubuntu.com
-      keyserver-options auto-key-retrieve
-    mode: '0600'
+    - name: Configure GPG to auto-retrieve keys from reliable keyserver
+      ansible.builtin.copy:
+        dest: "{{ target_home }}/.gnupg/gpg.conf"
+        content: |
+          keyserver hkps://keyserver.ubuntu.com
+          keyserver-options auto-key-retrieve
+        mode: '0600'
 
-- name: Configure dirmngr keyserver (GPG 2.1+)
-  ansible.builtin.copy:
-    dest: "{{ target_home }}/.gnupg/dirmngr.conf"
-    content: |
-      keyserver hkps://keyserver.ubuntu.com
-    mode: '0600'
+    - name: Configure dirmngr keyserver (GPG 2.1+)
+      ansible.builtin.copy:
+        dest: "{{ target_home }}/.gnupg/dirmngr.conf"
+        content: |
+          keyserver hkps://keyserver.ubuntu.com
+        mode: '0600'
 
-- name: Restart dirmngr to pick up new keyserver config
-  ansible.builtin.command: gpgconf --kill dirmngr
-  changed_when: false
-  failed_when: false
+    - name: Restart dirmngr to pick up new keyserver config
+      ansible.builtin.command: gpgconf --kill dirmngr
+      changed_when: false
+      failed_when: false
 
-- name: Import 1Password GPG key from upstream URL
-  ansible.builtin.shell: |
-    curl -sS https://downloads.1password.com/linux/keys/1password.asc | gpg --import
-  changed_when: false
+    - name: Import 1Password GPG key from upstream URL
+      ansible.builtin.shell: |
+        curl -sS https://downloads.1password.com/linux/keys/1password.asc | gpg --import
+      changed_when: false
 
-- name: Import helium-browser GPG key from upstream README
-  ansible.builtin.shell: |
-    curl -sS https://raw.githubusercontent.com/imputnet/helium-linux/refs/heads/main/README.md \
-      | awk '/-----BEGIN PGP PUBLIC KEY BLOCK-----/{p=1} p; /-----END PGP PUBLIC KEY BLOCK-----/{p=0}' \
-      | gpg --import
-  changed_when: false
+    - name: Import helium-browser GPG key from upstream README
+      ansible.builtin.shell: |
+        curl -sS https://raw.githubusercontent.com/imputnet/helium-linux/refs/heads/main/README.md \
+          | awk '/-----BEGIN PGP PUBLIC KEY BLOCK-----/{p=1} p; /-----END PGP PUBLIC KEY BLOCK-----/{p=0}' \
+          | gpg --import
+      changed_when: false
 
-- name: Install AUR packages
-  kewlfft.aur.aur:
-    name:
-      # password manager
-      - 1password
-      # web browsers
-      - helium-browser-bin
-      - ungoogled-chromium-bin
-      - webapp-manager
-      # file transfer
-      - localsend-bin
-      # communication
-      - slack-electron
-      - zoom
-      - teams-for-linux-electron-bin
-      # cloud sync
-      - rclone
-      # development
-      - clion
-      - clion-jre
-      # writing
-      - dawn-writer-bin
-      # AI tools
-      - claude-code
-      - claude-desktop-bin
-      - claude-cowork-service
-      # snapshots
-      - timeshift-autosnap
-    use: yay
-    state: present
-    extra_args: "--mflags --skippgpcheck"
+    - name: Install AUR packages
+      kewlfft.aur.aur:
+        name:
+          # password manager
+          - 1password
+          # web browsers
+          - helium-browser-bin
+          - ungoogled-chromium-bin
+          - webapp-manager
+          # file transfer
+          - localsend-bin
+          # communication
+          - slack-electron
+          - zoom
+          - teams-for-linux-electron-bin
+          # cloud sync
+          - rclone
+          # development
+          - clion
+          - clion-jre
+          # writing
+          - dawn-writer-bin
+          # AI tools
+          - claude-code
+          - claude-desktop-bin
+          - claude-cowork-service
+          # snapshots
+          - timeshift-autosnap
+        use: yay
+        state: present
+        extra_args: "--mflags --skippgpcheck"
 
-- name: Revoke NOPASSWD pacman
-  ansible.builtin.lineinfile:
-    path: /etc/sudoers
-    line: "{{ target_user }} ALL=(ALL) NOPASSWD: /usr/bin/pacman"
-    state: absent
-    validate: visudo -cf %s
-  become: yes
-  become_user: root
+  always:
+    - name: Revoke NOPASSWD pacman
+      ansible.builtin.lineinfile:
+        path: /etc/sudoers
+        line: "{{ target_user }} ALL=(ALL) NOPASSWD: /usr/bin/pacman"
+        state: absent
+        validate: visudo -cf %s
+      become: yes
+      become_user: root

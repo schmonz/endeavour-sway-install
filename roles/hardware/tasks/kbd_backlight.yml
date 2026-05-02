@@ -9,7 +9,7 @@
 - name: Set keyboard backlight to 50%
   ansible.builtin.command: "brightnessctl --device={{ _kbd_dev.stdout }} set 50%"
   when: _kbd_dev.stdout != ''
-  changed_when: true
+  changed_when: false
 
 - name: Add keyboard backlight Sway bindings
   ansible.builtin.blockinfile:

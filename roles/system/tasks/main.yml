@@ -7,6 +7,8 @@
     name: systemd-resolved
     state: started
 
+# This early symlink is bootstrap-only so reflector has DNS. The same symlink
+# appears again below after etckeeper is initialized, so the change is tracked.
 - name: Symlink resolv.conf to stub resolver
   ansible.builtin.file:
     src: /run/systemd/resolve/stub-resolv.conf
@@ -316,8 +318,6 @@
   ansible.builtin.command: firewall-cmd --set-default-zone=home
   changed_when: false
 
-# TODO: configure LocalSend to use real system hostname
-# (~/.local/share/org.localsend.localsend_app/shared_preferences.json)
 - name: Open LocalSend firewall ports
   ansible.posix.firewalld:
     port: "{{ item }}"

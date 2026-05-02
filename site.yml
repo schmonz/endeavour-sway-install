@@ -4,6 +4,7 @@
   connection: local
   gather_facts: yes
   become: yes
+  any_errors_fatal: true
 
   pre_tasks:
     - name: Install required Ansible collections
@@ -17,6 +18,7 @@
         awk -F: '$3 >= 1000 && $3 < 65534 { print $1; exit }' /etc/passwd
       register: _target_user
       changed_when: false
+      failed_when: _target_user.stdout == ''
 
     - name: Detect target home directory
       ansible.builtin.command: "getent passwd {{ _target_user.stdout }}"
@@ -37,6 +39,7 @@
   connection: local
   gather_facts: no
   become: yes
+  any_errors_fatal: true
 
   roles:
     - system
@@ -48,8 +51,11 @@
   connection: local
   gather_facts: no
   become: yes
+  # su rather than sudo: the runner is root, so su requires no password and
+  # works regardless of whether target_user has sudo configured yet.
   become_method: su
   become_user: "{{ target_user }}"
+  any_errors_fatal: true
 
   roles:
     - dotfiles
