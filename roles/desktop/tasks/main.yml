@@ -166,6 +166,6 @@
     path: "{{ target_home }}/.config/sway/config.d/autostart_applications"
     line: "exec {{ item }}"
   loop:
-    - sh -c 'gnome-keyring-daemon --start --daemonize --components=pkcs11,secrets,ssh 2>/dev/null; echo "" | gnome-keyring-daemon --unlock 2>/dev/null; env XDG_CURRENT_DESKTOP=GNOME 1password --silent'
+    - sh -c 'echo "" | gnome-keyring-daemon --unlock; env XDG_CURRENT_DESKTOP=GNOME 1password --silent'
     - localsend --hidden
     - tailscale-systray
