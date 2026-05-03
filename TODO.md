@@ -2,6 +2,12 @@
 
 ## Current issues
 
+- Default app for .md should be Text Editor
+- If not plenty of memory, don't install CLion, and configure Helium Memory Saver to Maximum
+- Still can't save 2FA to 1Password
+- SMB initial auth and also every browse seems very slow (to ap-juicer anyway, not sure about others)
+- Autostart 1Password --hidden or whatever
+- Sway autostart vs XDG autostart
 - is screen locking working as intended?
    - idle timeout -> what do I see on wiggle or tap?
    - lid close -> what do I see on lid open?
