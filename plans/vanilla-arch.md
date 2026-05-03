@@ -119,23 +119,32 @@ module loaded, no conflicting modules).
 
 ---
 
-### Step 4 — Internalize the Sway base configuration
-*The key step. Makes gatherd self-contained by owning the configs it currently only patches.*
+### Step 4 — Switch from `setup_sway_isomode.bash` to `sway-install.sh`
+*No templates to write. EOS Sway CE ships two scripts: `setup_sway_isomode.bash` for the
+Calamares live-ISO chroot, and `sway-install.sh` for post-install use. The latter is what
+`bootstrap.sh` should invoke — it rsync's the upstream configs into place from the cloned
+repo, installs the package list, and enables greetd. gatherd's Ansible patch tasks apply
+on top at first boot, exactly as today. Upstream improvements arrive automatically on every
+new install; contributions made upstream (e.g. the power menu PR) flow back down for free.*
 
-4a. Read `setup_sway_isomode.bash` from the EOS Community Editions repo and identify every
-    config file it writes: `~/.config/sway/config`, `config.d/default`,
-    `config.d/autostart_applications`, `~/.config/waybar/config`, `~/.config/foot/foot.ini`
+4a. Verify that the file paths deployed by `sway-install.sh` (via `rsync .config/ .local/
+    home_config/ etc/`) match what the existing gatherd patch tasks expect. The rsync layout
+    and the `setup_sway_isomode.bash` layout may differ slightly — audit each `lineinfile`,
+    `replace`, and `blockinfile` target path against the actual files in the EOS CE repo.
 
-4b. Reproduce those files verbatim as Jinja2 templates in `roles/desktop/templates/sway/`.
+4b. `sway-install.sh` detects username via `logname`, which does not work inside
+    `arch-chroot`. Pass the username explicitly:
+    ```sh
+    arch-chroot /mnt bash -c "cd /tmp/sway-ce && username=$TARGET_USER bash sway-install.sh"
+    ```
+    The Nvidia block is gated on `pacman -Qq nvidia-inst` and skips cleanly on vanilla Arch.
+    The `rm -rf ../sway` at the end is harmless since we clone to a throwaway path.
 
-4c. Add tasks in `roles/desktop/tasks/main.yml` to deploy those templates *before* the
-    existing patch tasks. The existing `lineinfile`/`replace`/`blockinfile` tasks stay unchanged.
+4c. No changes to `postinstall` in this step — it still runs on EOS via Calamares.
+    `sway-install.sh` is wired in during Step 5 (`bootstrap.sh`).
 
-4d. Remove the `setup_sway_isomode.bash` curl+bash line from `postinstall` (still Calamares
-    for now). Confirm the role is fully self-contained.
-
-**Test:** On a fresh Arch VM with no prior Sway config, run the playbook. Sway starts with
-correct keybindings, waybar, foot terminal, and all autostart entries.
+**Test:** Run `bootstrap.sh` against a fresh Arch VM. Confirm all gatherd patch tasks
+report the expected changes (not "file not found") and Sway starts correctly.
 
 ---
 
@@ -210,9 +219,12 @@ This entire block runs in `bootstrap.sh` via `arch-chroot` immediately after arc
   (or raw `pacstrap` if archinstall can't handle pre-formatted devices cleanly)
 - `arch-chroot`: keyfile generation, crypttab, openswap hook, resume kernel param,
   mkinitcpio, ansible + git install, gatherd clone, `systemctl enable gatherd`
-- Wipes creds JSON before exit, reboots
+- Clones EOS Sway CE to `/mnt/tmp/sway-ce` and runs `sway-install.sh` with username
+  injected (see Step 4b); this deploys all upstream Sway configs and enables greetd.
+  gatherd's Ansible patches apply on top at first boot.
+- Wipes creds JSON and `/mnt/tmp/sway-ce` before exit, reboots
 
-`gatherd.service` already references `greetd.service` — ensure greetd is in the package list.
+`gatherd.service` already references `greetd.service` — greetd is enabled by `sway-install.sh`.
 
 **Test:** Boot Arch ISO in QEMU, run `bootstrap.sh` in env-var mode, reboot. Confirm Sway
 session. Verify hibernate: `systemctl hibernate`, power off VM, resume — session restored.
