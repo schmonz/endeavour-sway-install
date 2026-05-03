@@ -1,5 +1,5 @@
 ---
-# clight is installed but intentionally not enabled or autostarted.
+# clight is installed but intentionally disabled until configured.
 # See TODO.md before making it operational.
 - name: Install clight
   kewlfft.aur.aur:
@@ -8,5 +8,19 @@
       - clight
     use: yay
     state: present
+  become: true
+  become_user: "{{ target_user }}"
+
+- name: Disable clightd service
+  ansible.builtin.systemd:
+    name: clightd
+    enabled: false
+    state: stopped
+
+- name: Remove clight from sway autostart
+  ansible.builtin.lineinfile:
+    path: "{{ target_home }}/.config/sway/config.d/autostart_applications"
+    line: exec clight
+    state: absent
   become: true
   become_user: "{{ target_user }}"
