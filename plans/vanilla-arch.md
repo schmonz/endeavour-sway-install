@@ -24,6 +24,7 @@ self-contained requires internalizing those base configs before removing the EOS
 | `eos-update-notifier` package + 4 config tasks | `roles/system/tasks/main.yml:62,178-184,364-365,367` | EOS-only package |
 | "Disable EOS greeter" task (`EOS-greeter.conf`) | `roles/desktop/tasks/main.yml:67-75` | EOS-only file |
 | Sway base configs (default, autostart_applications, waybar, foot) | *not in repo* | Created by `setup_sway_isomode.bash` |
+| Broadcom `wl` driver detection + install | *not in repo* | EOS live ISO detects and offers this; gatherd needs to own it |
 
 ---
 
@@ -69,6 +70,55 @@ Files: `roles/desktop/tasks/main.yml`
 
 ---
 
+### Step 3b — Handle Broadcom `wl` driver
+*EOS live install detects Broadcom wifi and offers to install the out-of-tree driver. Vanilla
+Arch won't do this, so gatherd must detect and install it, and the bootstrap must handle the
+live-environment chicken-and-egg problem.*
+
+**Post-install (Ansible side):**
+
+- `roles/machine_facts/tasks/main.yml`: add `has_broadcom_wifi` probe using `lspci -n`.
+  Broadcom wifi PCI IDs include `14e4:4311`, `14e4:4312`, `14e4:4313`, `14e4:4315`,
+  `14e4:4318`, `14e4:4319`, `14e4:431a`, `14e4:4320`, `14e4:4324`, `14e4:4325`,
+  `14e4:4328`, `14e4:4329`, `14e4:432b`, `14e4:432c`, `14e4:432d`, `14e4:4331`,
+  `14e4:4335`, `14e4:4339`, `14e4:43a0`, `14e4:43b1` — match with a regex
+  `'14e4:(43[0-9a-f]{2}|431[0-9a-f]|43[0-9a-f]{2})'` or a curated whitelist.
+
+- `roles/hardware/tasks/broadcom_wifi.yml` (new file): install `broadcom-wl-dkms` (AUR),
+  write `/etc/modprobe.d/broadcom-wl.conf` to blacklist conflicting `b43`, `b43legacy`,
+  `ssb`, `bcma`, `brcmsmac`, `brcmfmac` modules, and run `modprobe wl`.
+
+- `roles/hardware/tasks/main.yml`: add dispatch block mirroring the existing pattern:
+  ```yaml
+  - name: Import Broadcom wifi tasks
+    ansible.builtin.import_tasks: broadcom_wifi.yml
+    when: has_broadcom_wifi
+  ```
+
+**During bootstrap (live environment):**
+
+The Arch ISO does not ship the `wl` module. If the target machine has only Broadcom wifi
+(no ethernet), the bootstrap script cannot reach the network to run `pacstrap`.
+
+Options in order of preference:
+1. **Use ethernet for bootstrap** — document this as a requirement in `bootstrap.sh` and
+   README; the Ansible role handles wifi after first boot.
+2. **Auto-detect and load `wl` in `bootstrap.sh`** — before any network operations, probe
+   `lspci -n` for Broadcom PCI IDs, and if found: install `broadcom-wl` (available in
+   `archlinux-keyring` / AUR, or carry it on a second USB), blacklist conflicting modules,
+   run `modprobe wl`. This is fragile on the live ISO but avoids the ethernet requirement.
+3. **Use a custom Arch ISO** with `broadcom-wl` pre-loaded — most robust but requires
+   maintaining an ISO build.
+
+Option 1 is the starting point; document the constraint clearly. Option 2 can be added
+later if needed.
+
+**Test:** On a machine with a Broadcom wifi card (no ethernet), run `bootstrap.sh` via
+ethernet, reboot, confirm wifi is working in the Sway session (NetworkManager / `wl`
+module loaded, no conflicting modules).
+
+---
+
 ### Step 4 — Internalize the Sway base configuration
 *The key step. Makes gatherd self-contained by owning the configs it currently only patches.*
 
@@ -93,6 +143,8 @@ correct keybindings, waybar, foot terminal, and all autostart entries.
 *Swaps the Calamares trigger for a fully scriptable Arch install.*
 
 - Keep `postinstall` intact (rename to `postinstall.eos`) until this step is proven
+- **Ethernet required** for bootstrap if the machine has Broadcom wifi (see Step 3b).
+  Document this prominently at the top of `bootstrap.sh`.
 - Create `bootstrap.sh` that:
   - Drives `archinstall` with a committed `archinstall-config.json` (locale, disk layout,
     user, packages) for zero-interaction disk setup, OR uses a raw `pacstrap` + `arch-chroot`
