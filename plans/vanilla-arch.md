@@ -145,18 +145,66 @@ correct keybindings, waybar, foot terminal, and all autostart entries.
 - Keep `postinstall` intact (rename to `postinstall.eos`) until this step is proven
 - **Ethernet required** for bootstrap if the machine has Broadcom wifi (see Step 3b).
   Document this prominently at the top of `bootstrap.sh`.
-- Create `bootstrap.sh` that:
-  - Drives `archinstall` with a committed `archinstall-config.json` (locale, disk layout,
-    user, packages) for zero-interaction disk setup, OR uses a raw `pacstrap` + `arch-chroot`
-    script if more control is needed
-  - Installs `ansible git` in the new system
-  - Clones gatherd to `/usr/local/lib/gatherd`
-  - `systemctl enable gatherd` for first-boot execution
-- `gatherd.service` ordering already references `greetd.service` — ensure greetd is in
-  the archinstall package list
 
-**Test:** Boot an Arch ISO in QEMU, run `bootstrap.sh` with no interaction, reboot, confirm
-a working Sway session. Zero keystrokes after launching the script.
+**Disk layout — what archinstall handles automatically:**
+
+archinstall accepts `--config <json>` and `--creds <json>` for fully unattended installs.
+It handles LUKS2 full-disk encryption, btrfs with standard subvolumes (`@`, `@home`,
+`@log`, `@pkg`, `@snapshots`, `@swap`), bootloader config (systemd-boot or GRUB) with LUKS
+unlock parameters, and the `encrypt` mkinitcpio hook.
+
+**Parameterization — all scriptable, no prompts needed:**
+
+| Value | Mechanism |
+|---|---|
+| Hostname | `--config` JSON → `"hostname"` field |
+| Username | `--creds` JSON → `!users[0].username` |
+| User password | `--creds` JSON → `!users[0].!password` (plaintext, file deleted after install) |
+| Disk passphrase | `--creds` JSON → `!encryption-password` (also plaintext) |
+| Swap size | Detect RAM in `bootstrap.sh` (`awk '/MemTotal/{print $2}' /proc/meminfo`), round up, pass to archinstall config |
+| Disk device | Auto-detect (largest unpartitioned disk) or specify in `--config` |
+
+Setting password == passphrase is trivial: read a single value once in `bootstrap.sh` and
+write it to both `!users[0].!password` and `!encryption-password` in the generated creds
+JSON before invoking archinstall.
+
+**Hibernate — what archinstall does NOT do (requires post-install `arch-chroot` block):**
+
+Btrfs swapfile hibernate is supported since Linux 5.0 but requires three steps that
+archinstall skips:
+
+1. The swapfile must live on a dedicated `@swap` subvolume with CoW and compression
+   disabled (`chattr +C`). archinstall may create this subvolume; verify.
+
+2. After archinstall exits, before rebooting, `arch-chroot` to compute the physical offset:
+   ```sh
+   offset=$(btrfs inspect-internal map-swapfile -r /swap/swapfile)
+   luks_uuid=$(blkid -s UUID -o value /dev/disk/by-partlabel/cryptroot)
+   ```
+
+3. Write `resume=UUID=$luks_uuid resume_offset=$offset` to the bootloader kernel parameters
+   (e.g. append to `/boot/loader/entries/*.conf` for systemd-boot), add `resume` hook to
+   `/etc/mkinitcpio.conf` after `encrypt`, and run `mkinitcpio -P`.
+
+This `arch-chroot` block lives in `bootstrap.sh` immediately after `archinstall` returns.
+
+**Create `bootstrap.sh` that:**
+- Prompts once for hostname, username, password (or accepts them as env vars for
+  fully-headless use, e.g. from a pre-seeded USB)
+- Generates ephemeral `config.json` and `creds.json`, runs `archinstall --config --creds`
+- Runs the hibernate `arch-chroot` block above
+- Installs `ansible git` in the new system via `arch-chroot pacman -S`
+- Clones gatherd to `/usr/local/lib/gatherd`
+- `arch-chroot systemctl enable gatherd`
+- Wipes the creds JSON before exit
+- Reboots
+
+`gatherd.service` ordering already references `greetd.service` — ensure greetd is in
+the archinstall package list.
+
+**Test:** Boot an Arch ISO in QEMU, run `bootstrap.sh` with no interaction (env-var mode),
+reboot, confirm a working Sway session. Verify hibernate works: `systemctl hibernate`,
+power off QEMU, resume, session is restored. Zero keystrokes after launching the script.
 
 ---
 
