@@ -334,13 +334,17 @@
     - 53317/udp
   notify: Reload firewall
 
-- name: Configure greetd PAM for gnome-keyring
+- name: Configure greetd PAM to start gnome-keyring at login
   ansible.builtin.lineinfile:
     path: /etc/pam.d/greetd
-    line: "{{ item }}"
-  loop:
-    - "auth       optional     pam_gnome_keyring.so"
-    - "session    optional     pam_gnome_keyring.so auto_start"
+    line: "session    optional     pam_gnome_keyring.so auto_start"
+  notify: Etckeeper commit
+
+- name: Remove gnome-keyring PAM auth line (starts --login daemon with autologin, locking keyring with unknown password)
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/greetd
+    line: "auth       optional     pam_gnome_keyring.so"
+    state: absent
   notify: Etckeeper commit
 
 - name: Configure greetd Sway autologin
