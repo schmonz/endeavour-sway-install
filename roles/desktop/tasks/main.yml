@@ -45,9 +45,10 @@
     line: "bindsym XF86PowerOff exec $powermenu"
     regexp: '^\s*bindsym\s+XF86PowerOff\b'
 
+# Pinebook Pro has an embedded numpad that shadows letter keys when numlock is on
 - name: Disable numlock in sway
   ansible.builtin.lineinfile:
-    path: "{{ target_home }}/.config/sway/config.d/default"
+    path: "{{ target_home }}/.config/sway/config.d/input"
     line: "input type:keyboard xkb_numlock disabled"
     regexp: '^\s*input\s+type:keyboard\s+xkb_numlock\b'
 

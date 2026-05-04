@@ -1,14 +1,14 @@
 ---
 # systemd-resolved is required for `tailscale set --accept-dns`, which pushes
 # Tailscale's DNS into the local resolver. It must also be started early here
-# (before its place in the service loop below) because reflector needs DNS.
+# (before its place in the service loop below) because package downloads need DNS.
 - name: Start systemd-resolved
   ansible.builtin.systemd:
     name: systemd-resolved
     state: started
 
-# This early symlink is bootstrap-only so reflector has DNS. The same symlink
-# appears again below after etckeeper is initialized, so the change is tracked.
+# This early symlink is bootstrap-only so package downloads have DNS. The same
+# symlink appears again below after etckeeper is initialized, so the change is tracked.
 - name: Symlink resolv.conf to stub resolver
   ansible.builtin.file:
     src: /run/systemd/resolve/stub-resolv.conf
@@ -17,13 +17,13 @@
     force: true
     follow: false
 
-- name: Install reflector
+- name: Install rate-mirrors
   community.general.pacman:
-    name: reflector
+    name: rate-mirrors
     state: present
 
 - name: Sort mirrors for reliable downloads
-  ansible.builtin.command: reflector --latest 20 --sort rate --save /etc/pacman.d/mirrorlist
+  ansible.builtin.command: rate-mirrors --save /etc/pacman.d/mirrorlist archarm
   changed_when: false
 
 - name: Remove firefox
