@@ -58,6 +58,12 @@
     state: present
   failed_when: false
 
+- name: Install grub-btrfs
+  community.general.pacman:
+    name: grub-btrfs
+    state: present
+  when: has_grub
+
 - name: Install packages
   community.general.pacman:
     name:
@@ -101,8 +107,6 @@
       - github-cli
       - socat
       - bats
-      # snapshot support
-      - grub-btrfs
       # pacman cache cleanup
       - pacman-contrib
       # cron daemon

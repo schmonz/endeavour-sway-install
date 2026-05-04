@@ -19,6 +19,7 @@
     has_gl_capable_gpu: true
     has_embedded_numpad: false
     mirror_flavor: "{{ 'archarm' if ansible_facts['architecture'] == 'aarch64' else 'arch' }}"
+    has_grub: false
 
 # ── Shared inputs (reused by multiple probes) ─────────────────────────────────
 
@@ -225,6 +226,16 @@
   ansible.builtin.set_fact:
     has_gl_capable_gpu: false
   when: _lspci.stdout is search('1002:(5b6|7145)')
+
+- name: Stat /etc/default/grub
+  ansible.builtin.stat:
+    path: /etc/default/grub
+  register: _etc_default_grub
+
+- name: Detect has_grub
+  ansible.builtin.set_fact:
+    has_grub: true
+  when: _etc_default_grub.stat.exists
 
 # Pinebook Pro overlays a numpad on part of the keyboard — letters shadow numpad,
 # not the other way, so numlock-on makes letters unreachable.

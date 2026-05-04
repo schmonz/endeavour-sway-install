@@ -2,3 +2,4 @@
 - name: Rebuild grub
   ansible.builtin.command: grub-mkconfig -o /boot/grub/grub.cfg
   changed_when: false
+  when: has_grub
