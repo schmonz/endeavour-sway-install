@@ -22,9 +22,17 @@
     name: rate-mirrors
     state: present
 
-- name: Sort mirrors for reliable downloads
-  ansible.builtin.command: rate-mirrors --save /etc/pacman.d/mirrorlist {{ mirror_flavor }}
+- name: Generate sorted mirror list
+  ansible.builtin.command: rate-mirrors {{ mirror_flavor }}
+  become_user: "{{ target_user }}"
+  register: _mirrors
   changed_when: false
+
+- name: Write sorted mirror list
+  ansible.builtin.copy:
+    content: "{{ _mirrors.stdout }}\n"
+    dest: /etc/pacman.d/mirrorlist
+    mode: '0644'
 
 - name: Remove firefox
   community.general.pacman:
