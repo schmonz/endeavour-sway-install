@@ -19,6 +19,7 @@
     has_gl_capable_gpu: true
     has_embedded_numpad: false
     mirror_flavor: "{{ 'archarm' if ansible_facts['architecture'] == 'aarch64' else 'arch' }}"
+    is_aarch64: "{{ ansible_facts['architecture'] == 'aarch64' }}"
     has_grub: false
     has_extlinux: false
 

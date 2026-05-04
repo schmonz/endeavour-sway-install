@@ -40,23 +40,14 @@
     state: absent
   failed_when: false
 
-- name: Install discord
+- name: Install x86-only packages
   community.general.pacman:
-    name: discord
+    name:
+      - discord
+      - signal-desktop
+      - apostrophe
     state: present
-  failed_when: false
-
-- name: Install signal-desktop
-  community.general.pacman:
-    name: signal-desktop
-    state: present
-  failed_when: false
-
-- name: Install apostrophe
-  community.general.pacman:
-    name: apostrophe
-    state: present
-  failed_when: false
+  when: not is_aarch64
 
 - name: Install grub-btrfs
   community.general.pacman:
