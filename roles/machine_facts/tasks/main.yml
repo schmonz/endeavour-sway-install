@@ -20,6 +20,7 @@
     has_embedded_numpad: false
     mirror_flavor: "{{ 'archarm' if ansible_facts['architecture'] == 'aarch64' else 'arch' }}"
     has_grub: false
+    has_extlinux: false
 
 # ── Shared inputs (reused by multiple probes) ─────────────────────────────────
 
@@ -236,6 +237,16 @@
   ansible.builtin.set_fact:
     has_grub: true
   when: _etc_default_grub.stat.exists
+
+- name: Stat /boot/extlinux/extlinux.conf
+  ansible.builtin.stat:
+    path: /boot/extlinux/extlinux.conf
+  register: _extlinux_conf
+
+- name: Detect has_extlinux
+  ansible.builtin.set_fact:
+    has_extlinux: true
+  when: _extlinux_conf.stat.exists
 
 # Pinebook Pro overlays a numpad on part of the keyboard — letters shadow numpad,
 # not the other way, so numlock-on makes letters unreachable.

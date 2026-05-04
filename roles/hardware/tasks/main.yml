@@ -36,6 +36,10 @@
       ansible.builtin.import_tasks: zswap.yml
       when: not has_plenty_of_ram
 
+    - name: Import extlinux zswap tasks
+      ansible.builtin.import_tasks: zswap_extlinux.yml
+      when: not has_plenty_of_ram and has_extlinux
+
     - name: Import software GL tasks
       ansible.builtin.import_tasks: software_gl.yml
       when: not has_gl_capable_gpu
