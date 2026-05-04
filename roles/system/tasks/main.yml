@@ -17,6 +17,11 @@
     force: true
     follow: false
 
+- name: Install reflector
+  community.general.pacman:
+    name: reflector
+    state: present
+
 - name: Sort mirrors for reliable downloads
   ansible.builtin.command: reflector --latest 20 --sort rate --save /etc/pacman.d/mirrorlist
   changed_when: false

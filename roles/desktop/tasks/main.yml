@@ -45,6 +45,12 @@
     line: "bindsym XF86PowerOff exec $powermenu"
     regexp: '^\s*bindsym\s+XF86PowerOff\b'
 
+- name: Disable numlock in sway
+  ansible.builtin.lineinfile:
+    path: "{{ target_home }}/.config/sway/config.d/default"
+    line: "input type:keyboard xkb_numlock disabled"
+    regexp: '^\s*input\s+type:keyboard\s+xkb_numlock\b'
+
 - name: Configure waybar to use btop
   ansible.builtin.replace:
     path: "{{ target_home }}/.config/waybar/config"
