@@ -40,6 +40,12 @@
     state: absent
   failed_when: false
 
+- name: Install discord
+  community.general.pacman:
+    name: discord
+    state: present
+  failed_when: false
+
 - name: Install packages
   community.general.pacman:
     name:
@@ -57,7 +63,6 @@
       # firmware updates
       - fwupd
       # communication
-      - discord
       - signal-desktop
       - guvcview
       # office
