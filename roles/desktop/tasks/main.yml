@@ -101,6 +101,7 @@
       x-scheme-handler/https=helium.desktop
       text/html=helium.desktop
       application/xhtml+xml=helium.desktop
+      text/plain=xed.desktop
     mode: '0644'
 
 - name: Configure browser preferences
