@@ -148,6 +148,11 @@
 
         1Password 2FA: open seahorse, create a "login" keyring with no password,
         then sign in to 1Password once so it can store credentials there.
+
+        iCloud (rclone): when auth fails, grab Cookie and X-APPLE-WEBAUTH-HSA-TRUST
+        from browser devtools, then rclone config update icloud cookies='' trust_token=''
+        Token expires monthly.
+        <https://forum.rclone.org/t/icloud-connect-not-working-http-error-400/52019/44>
     mode: '0644'
 
 - name: Show post-setup notes and 1Password extension prompt on first Sway login
