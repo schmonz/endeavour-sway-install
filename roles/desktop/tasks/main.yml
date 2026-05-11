@@ -161,6 +161,7 @@
     line: >-
       exec sh -c 'test -f ~/.config/.setup-notes-shown || {
       xdg-open "https://chromewebstore.google.com/detail/1password-%E2%80%93-password-mana/aeblfdkhhhdcdjpifhhbdiojplfjncoa" &
+      xdg-open "https://login.tailscale.com/login" &
       foot sh -c "cat ~/.config/gatherd-post-setup.txt; echo; read -r -p \"Press Enter to dismiss.\" _" &&
       touch ~/.config/.setup-notes-shown; }'
 
