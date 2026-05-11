@@ -76,6 +76,7 @@
       # office
       - libreoffice-fresh
       - abiword
+      - xed
       # printing
       - cups
       - cups-browsed
