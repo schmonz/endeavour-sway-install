@@ -155,15 +155,14 @@
         <https://forum.rclone.org/t/icloud-connect-not-working-http-error-400/52019/44>
     mode: '0644'
 
-- name: Show post-setup notes and 1Password extension prompt on first Sway login
+- name: Show post-setup notes and 1Password extension prompt on Sway login
   ansible.builtin.lineinfile:
     path: "{{ target_home }}/.config/sway/config.d/autostart_applications"
     line: >-
-      exec sh -c 'test -f ~/.config/.setup-notes-shown || {
-      xdg-open "https://chromewebstore.google.com/detail/1password-%E2%80%93-password-mana/aeblfdkhhhdcdjpifhhbdiojplfjncoa" &
-      xdg-open "https://login.tailscale.com/login" &
-      foot sh -c "cat ~/.config/gatherd-post-setup.txt; echo; read -r -p \"Press Enter to dismiss.\" _" &&
-      touch ~/.config/.setup-notes-shown; }'
+      exec sh -c 'test -d ~/.config/net.imput.helium/Default/Extensions/aeblfdkhhhdcdjpifhhbdiojplfjncoa ||
+      { xdg-open "https://chromewebstore.google.com/detail/1password-%E2%80%93-password-mana/aeblfdkhhhdcdjpifhhbdiojplfjncoa" &
+      xdg-open "https://login.tailscale.com/login" & };
+      test -s ~/.config/gatherd-post-setup.txt && xdg-open ~/.config/gatherd-post-setup.txt'
 
 - name: Remove obsolete gnome-keyring --unlock autostart lines
   ansible.builtin.lineinfile:
