@@ -23,11 +23,3 @@
     - src: tmux.conf
       dest: .tmux.conf
 
-- name: Symlink root gitconfig
-  ansible.builtin.file:
-    src: "{{ target_home }}/trees/dotfiles/gitconfig"
-    dest: /root/.gitconfig
-    state: link
-    force: true
-  become: true
-  become_user: root
