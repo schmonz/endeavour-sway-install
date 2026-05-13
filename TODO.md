@@ -18,7 +18,7 @@
 
 - **Timeshift**: find CLI equivalent to Welcome-app GUI for initial config.
   Decide snapper vs. Timeshift (snapper + pacman hooks?).
-- **Update notifier**: need a distro-agnostic way to be notified of available package updates. `arch-update` (AUR) provides a Waybar module, systemd timer, and click-to-update terminal integration with yay support.
+- **arch-update timer**: currently a systemd user timer; will need a different mechanism on Artix/s6.
 - **ThinkPad screen brightness**: investigate clight or similar for autotuning.
 
 ## UX / pre-install

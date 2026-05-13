@@ -6,6 +6,8 @@
     mode: '0755'
   loop:
     - .local/bin
+    - .config/arch-update
+    - .config/systemd/user/timers.target.wants
     - .config/gtklock
     - .config/environment.d
     - .config/sway/config.d
@@ -151,6 +153,27 @@
     force: false
     mode: '0600'
 
+- name: Configure arch-update
+  ansible.builtin.copy:
+    dest: "{{ target_home }}/.config/arch-update/arch-update.conf"
+    content: |
+      AURHelper=yay
+      NoFlatpak
+    mode: '0644'
+
+- name: Configure xdg-terminal-exec to use foot
+  ansible.builtin.copy:
+    dest: "{{ target_home }}/.config/xdg-terminals.list"
+    content: "foot.desktop\n"
+    mode: '0644'
+
+- name: Enable arch-update timer
+  # systemd-specific; will need a different mechanism on Artix/s6
+  ansible.builtin.file:
+    path: "{{ target_home }}/.config/systemd/user/timers.target.wants/arch-update.timer"
+    src: /usr/lib/systemd/user/arch-update.timer
+    state: link
+
 - name: Install fix-webapp-desktop script
   ansible.builtin.copy:
     src: "{{ setup_dir }}/scripts/fix-webapp-desktop"
@@ -239,4 +262,5 @@
     - env XDG_CURRENT_DESKTOP=GNOME 1password --silent
     - localsend --hidden
     - tailscale-systray
+    - arch-update --tray
     - fix-webapp-desktop

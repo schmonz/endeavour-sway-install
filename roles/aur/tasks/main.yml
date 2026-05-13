@@ -104,6 +104,9 @@
           - claude-cowork-service
           # snapshots
           - timeshift-autosnap
+          # update notifier
+          - arch-update
+          - xdg-terminal-exec
         use: yay
         state: present
         extra_args: "--mflags --skippgpcheck"
