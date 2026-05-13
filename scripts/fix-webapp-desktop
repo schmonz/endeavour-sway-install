@@ -1,0 +1,14 @@
+#!/bin/bash
+# Watches for new webapp-manager desktop entries and fixes non-spec-compliant
+# quoting (--app="url" → --app=url) so strict launchers like fuzzel accept them.
+inotifywait -q -m -e close_write,moved_to \
+    --format '%f' \
+    "$HOME/.local/share/applications/" |
+while IFS= read -r filename; do
+    case "$filename" in
+        WebApp-*.desktop)
+            sed -i 's/--app="\([^"]*\)"/--app=\1/g' \
+                "$HOME/.local/share/applications/$filename"
+            ;;
+    esac
+done

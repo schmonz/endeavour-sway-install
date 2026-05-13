@@ -23,7 +23,7 @@
 
 ## UX / pre-install
 
-- Web Apps don't launch from the app launcher (but manually invoking the `Exec` value from a terminal works)
+- **webapp-manager** generates non-spec-compliant `Exec` lines (`--app="url"` instead of `--app=url`), causing fuzzel to refuse to launch them. `fix-webapp-desktop` auto-fixes new entries via inotifywait. Consider filing an upstream bug.
 - Lid close: mute + lock + suspend (non-Chromebook).
 - Hot corners: lower-right → lock + sleep display; upper-right → lock.
 - Desktop wallpaper showing hostname.

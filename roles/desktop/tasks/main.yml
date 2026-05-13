@@ -5,6 +5,7 @@
     state: directory
     mode: '0755'
   loop:
+    - .local/bin
     - .config/gtklock
     - .config/environment.d
     - .config/sway/config.d
@@ -150,6 +151,13 @@
     force: false
     mode: '0600'
 
+- name: Install fix-webapp-desktop script
+  ansible.builtin.copy:
+    src: "{{ setup_dir }}/scripts/fix-webapp-desktop"
+    dest: "{{ target_home }}/.local/bin/fix-webapp-desktop"
+    mode: '0755'
+    remote_src: true
+
 - name: Configure Zoom Wayland sharing
   ansible.builtin.lineinfile:
     path: "{{ target_home }}/.config/zoomus.conf"
@@ -231,3 +239,4 @@
     - env XDG_CURRENT_DESKTOP=GNOME 1password --silent
     - localsend --hidden
     - tailscale-systray
+    - fix-webapp-desktop

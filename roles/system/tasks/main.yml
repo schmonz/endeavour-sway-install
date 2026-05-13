@@ -87,6 +87,7 @@
       - xdg-desktop-portal-wlr
       # system tools
       - btop
+      - inotify-tools
       - fastfetch
       - tmux
       - the_silver_searcher
