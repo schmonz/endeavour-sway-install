@@ -63,12 +63,32 @@
     - desktop
 
   post_tasks:
-    - name: Install thinkfan
-      kewlfft.aur.aur:
-        name: thinkfan
-        use: yay
-        state: present
+    - name: Grant NOPASSWD pacman for thinkfan install
+      ansible.builtin.lineinfile:
+        path: /etc/sudoers
+        line: "{{ target_user }} ALL=(ALL) NOPASSWD: /usr/bin/pacman"
+        validate: visudo -cf %s
       when: has_thinkpad_hardware
+      become: true
+      become_user: root
+
+    - block: # noqa: name[missing]
+        - name: Install thinkfan
+          kewlfft.aur.aur:
+            name: thinkfan
+            use: yay
+            state: present
+          when: has_thinkpad_hardware
+      always:
+        - name: Revoke NOPASSWD pacman after thinkfan install
+          ansible.builtin.lineinfile:
+            path: /etc/sudoers
+            line: "{{ target_user }} ALL=(ALL) NOPASSWD: /usr/bin/pacman"
+            state: absent
+            validate: visudo -cf %s
+          when: has_thinkpad_hardware
+          become: true
+          become_user: root
 
     - name: Enable thinkfan service
       ansible.builtin.systemd:
