@@ -16,6 +16,18 @@
     - .config/chromium/Default
     - .local/share/org.localsend.localsend_app
 
+- name: Enable system dark mode
+  # Without this, the default ('default') leaves GTK, Flutter, and other apps guessing.
+  # dbus-run-session creates a throwaway bus; no user session needed.
+  ansible.builtin.shell: |
+    cur=$(dbus-run-session gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null)
+    [ "$cur" = "'prefer-dark'" ] || {
+      dbus-run-session gsettings set org.gnome.desktop.interface color-scheme prefer-dark
+      echo changed
+    }
+  register: _darkmode
+  changed_when: "'changed' in _darkmode.stdout"
+
 - name: Configure sudo askpass (seahorse ssh-askpass, already installed)
   ansible.builtin.copy:
     dest: "{{ target_home }}/.config/environment.d/50-askpass.conf"
@@ -145,13 +157,35 @@
     mode: '0600'
   when: not has_plenty_of_ram
 
-- name: Set LocalSend alias to system hostname
-  # force: false so LocalSend's live prefs (keys, cert) are never clobbered on re-runs
-  ansible.builtin.copy:
-    dest: "{{ target_home }}/.local/share/org.localsend.localsend_app/shared_preferences.json"
-    content: '{"flutter.ls_alias":"{{ lookup("pipe", "hostname -s") }}"}'
-    force: false
-    mode: '0600'
+- name: Configure LocalSend preferences
+  # Merges only our keys, preserving any existing keys (certs, session data, etc.)
+  ansible.builtin.shell: |
+    python3 - <<'PYEOF'
+    import json, os
+    path = "{{ target_home }}/.local/share/org.localsend.localsend_app/shared_preferences.json"
+    try:
+        with open(path) as f:
+            d = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        d = {}
+    want = {
+        "flutter.ls_alias": "{{ lookup('pipe', 'hostname -s') }}",
+        "flutter.ls_color": "system",
+        "flutter.ls_minimize_to_tray": True,
+    }
+    if all(d.get(k) == v for k, v in want.items()):
+        print("ok")
+    else:
+        d.update(want)
+        with open(path, 'w') as f:
+            json.dump(d, f)
+        os.chmod(path, 0o600)
+        print("changed")
+    PYEOF
+  args:
+    executable: /bin/bash
+  register: _localsend_prefs
+  changed_when: _localsend_prefs.stdout == 'changed'
 
 - name: Configure conky to display hostname on desktop
   ansible.builtin.copy:
