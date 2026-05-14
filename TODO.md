@@ -26,7 +26,6 @@
 - **webapp-manager** generates non-spec-compliant `Exec` lines (`--app="url"` instead of `--app=url`), causing fuzzel to refuse to launch them. `fix-webapp-desktop` auto-fixes new entries via inotifywait. Consider filing an upstream bug.
 - Lid close: mute + lock + suspend (non-Chromebook).
 - Hot corners: lower-right → lock + sleep display; upper-right → lock.
-- Desktop wallpaper showing hostname.
 - Font size for small screens (foot, text editor, system UI).
 - Captive portal auto-browsing.
 - AUR packages for TI calculator backup programs (need to create them).

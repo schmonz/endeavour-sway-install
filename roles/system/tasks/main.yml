@@ -87,6 +87,7 @@
       - xdg-desktop-portal-wlr
       # system tools
       - btop
+      - conky
       - inotify-tools
       - fastfetch
       - tmux

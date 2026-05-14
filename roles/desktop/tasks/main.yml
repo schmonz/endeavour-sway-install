@@ -153,6 +153,33 @@
     force: false
     mode: '0600'
 
+- name: Configure conky to display hostname on desktop
+  ansible.builtin.copy:
+    dest: "{{ target_home }}/.conkyrc"
+    mode: '0644'
+    content: |
+      conky.config = {
+          out_to_wayland = true,
+    out_to_x = false,
+          alignment = 'bottom_right',
+          gap_x = 20,
+          gap_y = 20,
+
+          own_window = true,
+          own_window_type = 'desktop',
+          own_window_transparent = true,
+
+          font = 'Noto Sans:bold:size=16',
+          default_color = 'white',
+          draw_shades = true,
+
+          update_interval = 3600,
+          double_buffer = true,
+      };
+
+      conky.text = [[${alignr}${exec fastfetch --structure Host --logo none --key-width 0 2>/dev/null | sed 's/^Host: //; s/.*(\(.*\))/\1/'}
+${alignr}${nodename}]];
+
 - name: Configure arch-update
   ansible.builtin.copy:
     dest: "{{ target_home }}/.config/arch-update/arch-update.conf"
@@ -259,6 +286,7 @@
     path: "{{ target_home }}/.config/sway/config.d/autostart_applications"
     line: "exec {{ item }}"
   loop:
+    - conky
     - env XDG_CURRENT_DESKTOP=GNOME 1password --silent
     - localsend --hidden
     - tailscale-systray
