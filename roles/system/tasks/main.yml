@@ -99,6 +99,10 @@
       - github-cli
       - socat
       - bats
+      # power management
+      - tlp
+      - tlp-rdw
+      - powertop
       # pacman cache cleanup
       - pacman-contrib
       # cron daemon
@@ -335,6 +339,17 @@
     - systemd-resolved
     - paccache.timer
     - cronie
+    - tlp
+    - powertop
+
+- name: Mask services that conflict with TLP
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    masked: true
+  loop:
+    - systemd-rfkill.service
+    - systemd-rfkill.socket
+    - power-profiles-daemon.service
 
 - name: Configure firewall default zone
   ansible.builtin.command: firewall-cmd --set-default-zone=home
@@ -375,6 +390,19 @@
 
 - name: Flush handlers
   ansible.builtin.meta: flush_handlers
+
+- name: Configure ThinkPad battery charge thresholds
+  ansible.builtin.lineinfile:
+    path: /etc/tlp.conf
+    regexp: '^#?\s*{{ item.key }}='
+    line: "{{ item.key }}={{ item.value }}"
+  loop:
+    - key: START_CHARGE_THRESH_BAT0
+      value: 75
+    - key: STOP_CHARGE_THRESH_BAT0
+      value: 80
+  when: has_thinkpad_hardware
+  notify: Etckeeper commit
 
 - name: Pre-configure known WiFi networks
   ansible.builtin.copy:

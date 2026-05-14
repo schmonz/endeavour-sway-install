@@ -342,6 +342,10 @@
       - LocalSend: check alias is system hostname, not a random phrase
       - On low-RAM machines: Helium → Settings → Performance — Memory Saver should be Maximum
       - Captive portal: join a portal network, confirm Helium opens automatically and portal login works
+      - Power management: run `tlp-stat | head -30` — confirm "Status: enabled" and correct power source
+      - Power management (ThinkPad): run `tlp-stat -b | grep -i thresh` — confirm 75/80 thresholds
+      - Power management: run `sudo powertop --time=5` — Tunables tab should be mostly "Good"
+      - Power management: on battery, run `upower -i $(upower -e | grep BAT)` — check energy-rate in watts
 
     mode: '0644'
 

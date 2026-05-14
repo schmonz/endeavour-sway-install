@@ -9,7 +9,6 @@
   set a brightness floor (e.g. `min_backlight_pct = 0.15` in `clight.conf`) and
   dimmer config (40% target, 60s battery timeout) — verify key names against
   `man clight` or `/usr/share/clight/modules.conf.d/` on a live machine.
-- **`setup_power_saving`**: empty stub. Decide TLP vs. power-profiles-daemon.
 - **`setup_infrared_receiver`**: empty stub. Implement LIRC setup or drop.
 - **`setup_thinkpad_goodies`**: empty stub. Investigate: smart card reader,
   T60 volume/power/ThinkVantage buttons, fingerprint reader.
