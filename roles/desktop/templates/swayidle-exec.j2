@@ -3,5 +3,5 @@ exec swayidle -w \
     timeout 300  'gtklock -d --lock-command "swaymsg output \* dpms off"' resume 'swaymsg "output * dpms on"' \
     lock         'gtklock -d --lock-command "swaymsg output \* dpms off"' \
     unlock       'swaymsg "output * dpms on"' \
-    after-resume 'notify-suspend-failed'{% if has_lid_events %} \
+    after-resume 'gatherd-notify-failed-suspend'{% if has_lid_events %} \
     before-sleep 'gtklock -d; sleep 1'{% endif %}

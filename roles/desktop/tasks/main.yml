@@ -211,7 +211,7 @@
           double_buffer = true,
       };
 
-      conky.text = [[${alignr}${exec machine-description}
+      conky.text = [[${alignr}${exec gatherd-describe-machine}
       ${alignr}${nodename}]];
 
 - name: Configure arch-update
@@ -235,17 +235,17 @@
     src: /usr/lib/systemd/user/arch-update.timer
     state: link
 
-- name: Install fix-webapp-desktop script
+- name: Install gatherd-fix-webapps script
   ansible.builtin.copy:
-    src: "{{ setup_dir }}/scripts/fix-webapp-desktop"
-    dest: "{{ target_home }}/.local/bin/fix-webapp-desktop"
+    src: "{{ setup_dir }}/scripts/gatherd-fix-webapps"
+    dest: "{{ target_home }}/.local/bin/gatherd-fix-webapps"
     mode: '0755'
     remote_src: true
 
-- name: Install machine-description script
+- name: Install gatherd-describe-machine script
   ansible.builtin.copy:
-    src: "{{ setup_dir }}/scripts/machine-description"
-    dest: "{{ target_home }}/.local/bin/machine-description"
+    src: "{{ setup_dir }}/scripts/gatherd-describe-machine"
+    dest: "{{ target_home }}/.local/bin/gatherd-describe-machine"
     mode: '0755'
     remote_src: true
 
@@ -332,4 +332,4 @@
     - localsend --hidden
     - tailscale-systray
     - arch-update --tray
-    - fix-webapp-desktop
+    - gatherd-fix-webapps

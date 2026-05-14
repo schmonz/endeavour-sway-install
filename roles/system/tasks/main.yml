@@ -275,16 +275,16 @@
 
 - name: Install FUSE abort sleep hook
   ansible.builtin.copy:
-    src: "{{ setup_dir }}/scripts/unmount-fuse-before-sleep"
-    dest: /etc/systemd/system-sleep/unmount-fuse-before-sleep
+    src: "{{ setup_dir }}/scripts/gatherd-unmount-fuse"
+    dest: /etc/systemd/system-sleep/gatherd-unmount-fuse
     mode: '0755'
     remote_src: true
   notify: Etckeeper commit
 
 - name: Install suspend-failed notification script
   ansible.builtin.copy:
-    src: "{{ setup_dir }}/scripts/notify-suspend-failed"
-    dest: /usr/local/bin/notify-suspend-failed
+    src: "{{ setup_dir }}/scripts/gatherd-notify-failed-suspend"
+    dest: /usr/local/bin/gatherd-notify-failed-suspend
     mode: '0755'
     remote_src: true
   notify: Etckeeper commit

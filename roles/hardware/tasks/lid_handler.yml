@@ -12,18 +12,18 @@
   become: true
   become_user: "{{ target_user }}"
 
-- name: Install sway-lid-handler script
+- name: Install gatherd-handle-lid script
   ansible.builtin.copy:
-    src: "{{ setup_dir }}/scripts/sway-lid-handler"
-    dest: "{{ target_home }}/.local/bin/sway-lid-handler"
+    src: "{{ setup_dir }}/scripts/gatherd-handle-lid"
+    dest: "{{ target_home }}/.local/bin/gatherd-handle-lid"
     mode: '0755'
     remote_src: true
   become: true
   become_user: "{{ target_user }}"
 
-- name: Write sway-lid-handler systemd user service
+- name: Write gatherd-handle-lid systemd user service
   ansible.builtin.copy:
-    dest: "{{ target_home }}/.config/systemd/user/sway-lid-handler.service"
+    dest: "{{ target_home }}/.config/systemd/user/gatherd-handle-lid.service"
     content: |
       [Unit]
       Description=Sway lid-close handler (sysfs ACPI poller)
@@ -31,7 +31,7 @@
 
       [Service]
       Type=simple
-      ExecStart={{ target_home }}/.local/bin/sway-lid-handler
+      ExecStart={{ target_home }}/.local/bin/gatherd-handle-lid
       Restart=on-failure
       RestartSec=1
 
@@ -41,17 +41,17 @@
   become: true
   become_user: "{{ target_user }}"
 
-- name: Enable sway-lid-handler user service
+- name: Enable gatherd-handle-lid user service
   ansible.builtin.file:
-    path: "{{ target_home }}/.config/systemd/user/graphical-session.target.wants/sway-lid-handler.service"
-    src: ../sway-lid-handler.service
+    path: "{{ target_home }}/.config/systemd/user/graphical-session.target.wants/gatherd-handle-lid.service"
+    src: ../gatherd-handle-lid.service
     state: link
   become: true
   become_user: "{{ target_user }}"
 
-- name: Add sway-lid-handler autostart entry
+- name: Add gatherd-handle-lid autostart entry
   ansible.builtin.lineinfile:
     path: "{{ target_home }}/.config/sway/config.d/autostart_applications"
-    line: "exec systemctl --user start sway-lid-handler.service"
+    line: "exec systemctl --user start gatherd-handle-lid.service"
   become: true
   become_user: "{{ target_user }}"
