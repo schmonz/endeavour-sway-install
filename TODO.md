@@ -9,8 +9,10 @@
   set a brightness floor (e.g. `min_backlight_pct = 0.15` in `clight.conf`) and
   dimmer config (40% target, 60s battery timeout) — verify key names against
   `man clight` or `/usr/share/clight/modules.conf.d/` on a live machine.
-- **`setup_thinkpad_goodies`**: empty stub. Investigate: smart card reader,
-  T60 volume/power/ThinkVantage buttons, fingerprint reader.
+
+- **ThinkPad fingerprint reader**: investigate `fprintd` + PAM integration. Needs per-model enrollment testing (T60 optical sensor vs. newer swipe/touch sensors).
+- **ThinkPad smart card reader**: investigate `pcscd` + `opensc`. T60 has a built-in reader; verify other models.
+- **ThinkPad docking**: investigate `dockd` or udev rules for dock/undock events (display reconfiguration, power profile switch).
 
 ## Phase 3 decisions needed
 

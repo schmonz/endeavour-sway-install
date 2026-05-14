@@ -1,0 +1,15 @@
+sensors:
+  - hwmon: /sys/class/hwmon
+    name: coretemp
+    indices: [1]
+
+fans:
+  - tpacpi: /proc/acpi/ibm/fan
+
+levels:
+  - [0,    0,  55]
+  - [1,   48,  61]
+  - [2,   55,  67]
+  - [3,   61,  74]
+  - [4,   67,  81]
+  - [7,   74, 32767]

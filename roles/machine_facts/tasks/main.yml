@@ -16,6 +16,8 @@
     has_plenty_of_ram: false
     has_ir_receiver: false
     has_thinkpad_hardware: false
+    has_thinkpad_trackpoint: false
+    has_thinkpad_vantage_button: false
     has_gl_capable_gpu: true
     has_embedded_numpad: false
     mirror_flavor: "{{ 'archarm' if ansible_facts['architecture'] == 'aarch64' else 'arch' }}"
@@ -223,6 +225,28 @@
     - >
       'ThinkPad' in (ansible_facts.product_name | default('')) or
       'ThinkPad' in (ansible_facts.product_version | default(''))
+
+- name: Check for TrackPoint input device
+  ansible.builtin.shell: |
+    grep -rl "TrackPoint" /sys/class/input/input*/name 2>/dev/null | grep -q . && echo true || echo false
+  register: _trackpoint
+  changed_when: false
+
+- name: Detect has_thinkpad_trackpoint
+  ansible.builtin.set_fact:
+    has_thinkpad_trackpoint: true
+  when: _trackpoint.stdout == 'true'
+
+- name: Check for ThinkVantage button input device
+  ansible.builtin.shell: |
+    grep -rl "ThinkVantage" /sys/class/input/input*/name 2>/dev/null | grep -q . && echo true || echo false
+  register: _vantage_button
+  changed_when: false
+
+- name: Detect has_thinkpad_vantage_button
+  ansible.builtin.set_fact:
+    has_thinkpad_vantage_button: true
+  when: _vantage_button.stdout == 'true'
 
 # r300-family ATI/AMD GPUs cannot drive modern OpenGL; need llvmpipe.
 # 1002:5b6x = RV370 (Radeon X300/X600); 1002:7145 = M26 (Mobility Radeon X1400)

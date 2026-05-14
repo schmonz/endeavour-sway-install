@@ -52,6 +52,10 @@
       ansible.builtin.import_tasks: lid_handler.yml
       when: not has_lid_events
 
+    - name: Import ThinkPad tasks
+      ansible.builtin.import_tasks: thinkpad.yml
+      when: has_thinkpad_hardware
+
   always:
     - name: Revoke NOPASSWD pacman
       ansible.builtin.lineinfile:

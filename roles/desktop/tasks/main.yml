@@ -69,6 +69,24 @@
     regexp: '^\s*input\s+type:keyboard\s+xkb_numlock\b'
   when: has_embedded_numpad
 
+- name: Configure TrackPoint middle-button scroll in sway
+  ansible.builtin.blockinfile:
+    path: "{{ target_home }}/.config/sway/config.d/input"
+    block: |
+      input type:pointer {
+          scroll_method on_button_down
+          scroll_button button2
+      }
+    marker: "# {mark} ANSIBLE MANAGED BLOCK: trackpoint-scroll"
+  when: has_thinkpad_trackpoint
+
+- name: Bind ThinkVantage button to open terminal
+  ansible.builtin.lineinfile:
+    path: "{{ target_home }}/.config/sway/config.d/default"
+    line: "bindsym XF86Launch1 exec foot"
+    regexp: '^\s*bindsym\s+XF86Launch1\b'
+  when: has_thinkpad_vantage_button
+
 - name: Configure waybar to use btop
   ansible.builtin.replace:
     path: "{{ target_home }}/.config/waybar/config"
@@ -349,6 +367,10 @@
       - IR receiver (T60/MBP): run `ls /dev/lirc* /sys/class/rc/rc* 2>/dev/null` — should show at least one device
       - IR receiver (T60/MBP): run `ir-keytable` — confirm device listed with a keymap loaded
       - IR receiver (T60/MBP): run `ir-keytable -t -s rc0` and press remote buttons — should show scancode + keycode per press
+      - ThinkPad fan control: run `cat /proc/acpi/ibm/fan` — should show current speed level and RPM
+      - ThinkPad fan control: run `systemctl status thinkfan` — should be active
+      - TrackPoint scroll (ThinkPad): in any scrollable window, hold middle button and push TrackPoint — should scroll
+      - ThinkVantage button (T60): press blue ThinkVantage button — should open a terminal
 
     mode: '0644'
 
