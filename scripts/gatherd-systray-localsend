@@ -1,2 +1,2 @@
 #!/bin/sh
-exec localsend --hidden
+exec gatherd-wait-sni localsend --hidden

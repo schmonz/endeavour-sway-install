@@ -417,6 +417,13 @@
 
       socks5-addr = "localhost:1666"
 
+- name: Install gatherd-wait-sni script
+  ansible.builtin.copy:
+    src: "{{ setup_dir }}/scripts/gatherd-wait-sni"
+    dest: "{{ target_home }}/.local/bin/gatherd-wait-sni"
+    mode: '0755'
+    remote_src: true
+
 - name: Install gatherd-prompt-captiveportal script
   ansible.builtin.copy:
     src: "{{ setup_dir }}/scripts/gatherd-prompt-captiveportal"
