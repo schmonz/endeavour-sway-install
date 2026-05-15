@@ -93,6 +93,50 @@
     regexp: '^\s*bindsym\s+XF86Launch1\b'
   when: has_thinkpad_vantage_button
 
+- name: Remove network throughput widget from waybar center
+  ansible.builtin.lineinfile:
+    path: "{{ target_home }}/.config/waybar/config"
+    regexp: '^\s+"network"\s*,?\s*$'
+    state: absent
+
+- name: Add mpris widget to waybar modules-right
+  ansible.builtin.lineinfile:
+    path: "{{ target_home }}/.config/waybar/config"
+    insertafter: '"backlight",'
+    line: '        "mpris",'
+    regexp: '"mpris"'
+
+- name: Add mpris widget config to waybar
+  ansible.builtin.blockinfile:
+    path: "{{ target_home }}/.config/waybar/config"
+    insertbefore: '"network":'
+    marker: "// {mark} ANSIBLE MANAGED BLOCK: mpris"
+    block: |2
+          "mpris": {
+              "format": "{player_icon} {title} — {artist}",
+              "format-paused": "{status_icon} {title} — {artist}",
+              "player-icons": { "default": "▶" },
+              "status-icons": { "paused": "⏸" },
+              "max-length": 40
+          },
+
+- name: Add mpris to waybar CSS module list
+  ansible.builtin.lineinfile:
+    path: "{{ target_home }}/.config/waybar/style.css"
+    insertafter: '#backlight,'
+    regexp: '#mpris,'
+    line: '#mpris,'
+
+- name: Add mpris min-width to waybar CSS
+  ansible.builtin.blockinfile:
+    path: "{{ target_home }}/.config/waybar/style.css"
+    insertafter: '^#pulseaudio \{'
+    marker: "/* {mark} ANSIBLE MANAGED BLOCK: mpris */"
+    block: |
+      #mpris {
+          min-width: 8em;
+      }
+
 - name: Configure waybar to use btop
   ansible.builtin.replace:
     path: "{{ target_home }}/.config/waybar/config"
