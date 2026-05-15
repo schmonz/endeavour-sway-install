@@ -130,7 +130,7 @@
 - name: Add mpris min-width to waybar CSS
   ansible.builtin.blockinfile:
     path: "{{ target_home }}/.config/waybar/style.css"
-    insertafter: '^#pulseaudio \{'
+    insertbefore: '^#pulseaudio \{'
     marker: "/* {mark} ANSIBLE MANAGED BLOCK: mpris */"
     block: |
       #mpris {
@@ -293,13 +293,13 @@
     mode: '0600'
   when: not has_plenty_of_ram
 
-- name: Configure Helium and Chromium default zoom to 125%
+- name: Configure Helium and Chromium default zoom to 100%
   # Chromium stores zoom as ln(factor)/ln(1.2) under partition.default_zoom_level.x,
-  # not as plain ln(factor) under profile.default_zoom_level.
+  # not as plain ln(factor) under profile.default_zoom_level. 100% = 0.
   ansible.builtin.shell: |
     python3 - <<'PYEOF'
     import json, math, os
-    zoom = math.log(1.25) / math.log(1.2)
+    zoom = 0
     for path in [
         "{{ target_home }}/.config/net.imput.helium/Default/Preferences",
         "{{ target_home }}/.config/chromium/Default/Preferences",
