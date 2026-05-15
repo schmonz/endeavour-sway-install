@@ -49,11 +49,11 @@ Ansible hook: write `~/.config/electron-flags.conf` (covers Slack + Teams) and
 
 ## Desktop / UX
 
+- **Light/dark mode switch**: manually toggle via systray item.
+- **Geolocation**: enable via `xdg-desktop-portal-gtk` or punt.
+- **Auto light/dark mode**: via geolocation or simple timer.
 - **Lid close**: mute + lock + suspend (non-Chromebook).
 - **Hot corners**: lower-right → lock + sleep display; upper-right → lock.
-- **Font size for small screens**: foot, text editor, and system UI all need
-  adjustment on screens narrower than 1920px (currently only foot is auto-sized).
-- **Geolocation**: enable via `xdg-desktop-portal-gtk` or punt.
 - **More dotfiles**: currently only `.gitconfig` and `.tmux.conf` are symlinked.
   Want to use more without losing system-provided defaults (sway configs, waybar,
   foot, etc. come from `sway-install.sh` and are patched by Ansible). Options:

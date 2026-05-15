@@ -131,7 +131,7 @@
 
 - name: Configure xed font size for 80-col two-up layout
   ansible.builtin.shell: |
-    font="JetBrains Mono {{ foot_font_size }}"
+    font="JetBrains Mono 10"
     cur=$(dbus-run-session gsettings get org.x.editor.preferences.editor editor-font 2>/dev/null)
     use=$(dbus-run-session gsettings get org.x.editor.preferences.editor use-default-font 2>/dev/null)
     if [ "$cur" = "'$font'" ] && [ "$use" = "false" ]; then
@@ -330,7 +330,7 @@
           double_buffer = true,
       };
 
-      conky.text = [[${alignr}${exec gatherd-describe-machine}
+      conky.text = [[${alignr}${exec {{ target_home }}/.local/bin/gatherd-describe-machine}
       ${alignr}${nodename}]];
 
 - name: Configure arch-update
@@ -549,12 +549,17 @@
     regexp: 'gnome-keyring-daemon --unlock'
     state: absent
 
-- name: Add sway autostart entries
+- name: Add conky autostart entry
   ansible.builtin.lineinfile:
     path: "{{ target_home }}/.config/sway/config.d/autostart_applications"
-    line: "exec {{ item }}"
+    line: "exec conky"
+
+- name: Add gatherd script autostart entries
+  ansible.builtin.lineinfile:
+    path: "{{ target_home }}/.config/sway/config.d/autostart_applications"
+    regexp: "^exec (?:.*/)?{{ item }}$"
+    line: "exec {{ target_home }}/.local/bin/{{ item }}"
   loop:
-    - conky
     - gatherd-systray-1password
     - gatherd-systray-localsend
     - gatherd-systray-tailscale
