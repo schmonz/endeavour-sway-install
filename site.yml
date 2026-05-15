@@ -56,6 +56,8 @@
   become_method: ansible.builtin.su
   become_user: "{{ target_user }}"
   any_errors_fatal: true
+  environment:
+    PATH: "{{ target_home }}/.local/bin:{{ ansible_env.PATH }}"
 
   roles:
     - dotfiles
