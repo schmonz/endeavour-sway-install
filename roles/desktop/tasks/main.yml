@@ -143,29 +143,11 @@
     regexp: '\bhtop\b'
     replace: btop
 
-- name: Configure waybar bar font size
+- name: Configure waybar font sizes
   ansible.builtin.replace:
     path: "{{ target_home }}/.config/waybar/style.css"
-    after: '^#waybar\s*\{'
-    before: '^}'
     regexp: 'font-size:\s*\d+px'
     replace: "font-size: {{ (13 * foot_font_size / 10) | round | int }}px"
-
-- name: Configure waybar workspaces font size
-  ansible.builtin.replace:
-    path: "{{ target_home }}/.config/waybar/style.css"
-    after: '^#workspaces\s*\{'
-    before: '^}'
-    regexp: 'font-size:\s*\d+px'
-    replace: "font-size: {{ (13 * foot_font_size / 10) | round | int }}px"
-
-- name: Configure waybar power button font size
-  ansible.builtin.replace:
-    path: "{{ target_home }}/.config/waybar/style.css"
-    after: '^#custom-power\s*\{'
-    before: '^}'
-    regexp: 'font-size:\s*\d+px'
-    replace: "font-size: {{ (15 * foot_font_size / 10) | round | int }}px"
 
 - name: Configure foot font size for 80-col two-up layout
   ansible.builtin.lineinfile:
