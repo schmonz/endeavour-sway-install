@@ -281,32 +281,6 @@
       force: false
       mode: '0600'
 
-- name: Enable Helium extension proxy
-  # helium.services.ext_proxy must be true for the Chrome Web Store flow to work.
-  # The onboarding flow sets it, but we skip onboarding; this ensures it's always set.
-  ansible.builtin.shell: |
-    python3 - <<'PYEOF'
-    import json, os
-    path = "{{ target_home }}/.config/net.imput.helium/Default/Preferences"
-    try:
-        with open(path) as f:
-            d = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        d = {}
-    if d.get('helium', {}).get('services', {}).get('ext_proxy') is True:
-        print("ok")
-    else:
-        d.setdefault('helium', {}).setdefault('services', {})['ext_proxy'] = True
-        with open(path, 'w') as f:
-            json.dump(d, f)
-        os.chmod(path, 0o600)
-        print("changed")
-    PYEOF
-  args:
-    executable: /bin/bash
-  register: _helium_ext_proxy
-  changed_when: _helium_ext_proxy.stdout == 'changed'
-
 - name: Seed Helium Memory Saver to Maximum on low-RAM machines
   # Stored in Local State (not Default/Preferences); aggressiveness 2 = Maximum.
   # force: false so Helium's live Local State is never clobbered on re-runs.
