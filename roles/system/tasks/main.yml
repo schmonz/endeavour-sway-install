@@ -23,7 +23,7 @@
     state: present
 
 - name: Generate sorted mirror list
-  ansible.builtin.command: rate-mirrors {{ mirror_flavor }}
+  ansible.builtin.command: rate-mirrors --per-mirror-timeout 1500 {{ mirror_flavor }}
   become_user: "{{ target_user }}"
   register: _mirrors
   changed_when: false
@@ -421,10 +421,4 @@
   notify:
     - Reload NetworkManager connections
     - Etckeeper commit
-
-- name: Run firmware updates
-  ansible.builtin.shell: |
-    fwupdmgr get-updates || true
-    fwupdmgr update || true
-  changed_when: false
 
