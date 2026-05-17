@@ -20,7 +20,7 @@
     has_thinkpad_vantage_button: false
     has_gl_capable_gpu: true
     has_embedded_numpad: false
-is_aarch64: "{{ ansible_facts['architecture'] == 'aarch64' }}"
+    is_aarch64: "{{ ansible_facts['architecture'] == 'aarch64' }}"
     has_grub: false
     has_extlinux: false
     screen_width_px: 1920
