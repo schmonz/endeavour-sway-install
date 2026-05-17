@@ -108,19 +108,11 @@
           # update notifier
           - arch-update
           - xdg-terminal-exec
+          # IDE manager
+          - jetbrains-toolbox
         use: yay
         state: present
         extra_args: "--mflags --skippgpcheck"
-
-    - name: Install memory-intensive AUR packages
-      kewlfft.aur.aur:
-        name:
-          - clion
-          - clion-jre
-        use: yay
-        state: present
-        extra_args: "--mflags --skippgpcheck"
-      when: has_plenty_of_ram
 
   always:
     - name: Revoke NOPASSWD pacman

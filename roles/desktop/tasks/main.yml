@@ -449,6 +449,13 @@
     mode: '0755'
     remote_src: true
 
+- name: Install gatherd-systray-jetbrains script
+  ansible.builtin.copy:
+    src: "{{ setup_dir }}/scripts/gatherd-systray-jetbrains"
+    dest: "{{ target_home }}/.local/bin/gatherd-systray-jetbrains"
+    mode: '0755'
+    remote_src: true
+
 - name: Install gatherd-pbcopy and gatherd-pbpaste scripts
   ansible.builtin.copy:
     src: "{{ setup_dir }}/scripts/{{ item }}"
