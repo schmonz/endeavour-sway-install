@@ -17,23 +17,6 @@
     force: true
     follow: false
 
-- name: Install rate-mirrors
-  community.general.pacman:
-    name: rate-mirrors
-    state: present
-
-- name: Generate sorted mirror list
-  ansible.builtin.command: rate-mirrors --per-mirror-timeout 1500 {{ mirror_flavor }}
-  become_user: "{{ target_user }}"
-  register: _mirrors
-  changed_when: false
-
-- name: Write sorted mirror list
-  ansible.builtin.copy:
-    content: "{{ _mirrors.stdout }}\n"
-    dest: /etc/pacman.d/mirrorlist
-    mode: '0644'
-
 - name: Remove firefox
   community.general.pacman:
     name: firefox
