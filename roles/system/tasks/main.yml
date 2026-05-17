@@ -51,6 +51,7 @@
       - seahorse
       # firmware updates
       - fwupd
+      # text editor
       - xed
       # printing
       - cups

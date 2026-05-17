@@ -5,7 +5,7 @@ printf '\033]0;Package Installation\007'
 echo "Installing remaining packages..."
 echo ""
 
-journalctl -fn 0 -u gatherd-slow.service &
+journalctl -fn 50 -u gatherd-slow.service &
 jctl_pid=$!
 
 while systemctl is-active --quiet gatherd-slow.service; do

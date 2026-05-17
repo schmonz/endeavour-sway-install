@@ -8,6 +8,7 @@ ConditionPathExists=!/etc/gatherd-slow-complete
 
 [Service]
 Type=oneshot
+ExecStartPre=ansible-galaxy collection install --requirements-file /usr/local/lib/gatherd/requirements.yml
 ExecStart=systemd-inhibit --what=sleep --who=gatherd-slow --why="Background package installation in progress" --mode=block \
     ansible-playbook /usr/local/lib/gatherd/site-slow.yml
 RemainAfterExit=no
