@@ -525,10 +525,8 @@
       - Fix exit node: check admin console ("cannot relay traffic")
 
       # iCloud
-      - `rclone config`
-      - When auth fails, grab Cookie and `X-APPLE-WEBAUTH-HSA-TRUST` from browser devtools,
-        then `rclone config update icloud cookies='' trust_token=''`
-      - Token expires monthly
+      - Run `rclone config` and follow prompts to add a remote named `icloud`
+      - When tokens expire (monthly), log into icloud.com when prompted — gatherd-prompt-icloud extracts cookies and updates rclone automatically
       - [Details](https://forum.rclone.org/t/icloud-connect-not-working-http-error-400/52019/44)
 
       # Claude
@@ -547,6 +545,12 @@
       - Screen lock: close lid, reopen — should see lock screen
       - LocalSend: check alias is system hostname, not a random phrase
       - On low-RAM machines: Helium → Settings → Performance — Memory Saver should be Maximum
+      - Systray (fast-path): after first login, 1Password, Tailscale, and arch-update tray icons appear without logging out
+      - Systray (slow-path): LocalSend and JetBrains Toolbox tray icons appear as soon as slow install finishes, without logging out
+      - Systray (idempotency): run `gatherd-launch-systray` manually — no duplicate tray icons appear
+      - Helium: first launch shows exactly one setup tab
+      - iCloud: run `rclone lsd icloud:` — should list top-level folders without error
+      - iCloud re-auth: log out of icloud.com in Helium, log back in — `rclone lsd icloud:` should work again without manual steps
       - Captive portal: join a portal network, confirm Helium opens automatically and portal login works
       - Power management: run `tlp-stat | head -30` — confirm "Status: enabled" and correct power source
       - Power management (ThinkPad): run `tlp-stat -b | grep -i thresh` — confirm 75/80 thresholds

@@ -34,6 +34,16 @@
         extra_args: "--mflags --skippgpcheck"
 
   always:
+    - name: Launch systray apps now that slow-path packages are installed
+      # swaymsg exec runs inside the live Sway session; SWAYSOCK must be set explicitly
+      # since Ansible runs outside the session. Bails silently if Sway isn't up.
+      ansible.builtin.shell: |
+        sock=$(ls /run/user/$(id -u)/sway-ipc.*.*.sock 2>/dev/null | head -1)
+        [ -n "$sock" ] || exit 0
+        XDG_RUNTIME_DIR=/run/user/$(id -u) SWAYSOCK="$sock" \
+          swaymsg exec "$HOME/.local/bin/gatherd-launch-systray"
+      changed_when: false
+
     - name: Revoke NOPASSWD pacman after slow AUR installs
       ansible.builtin.lineinfile:
         path: /etc/sudoers
