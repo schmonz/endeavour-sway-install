@@ -20,7 +20,7 @@ pacman -S --noconfirm --needed ansible git rate-mirrors
 
 # Select fastest mirrors once, before the first Ansible run needs them.
 mirror_flavor=$([ "$(uname -m)" = "aarch64" ] && echo archarm || echo arch)
-rate-mirrors --per-mirror-timeout 1500 "$mirror_flavor" > /etc/pacman.d/mirrorlist
+sudo -u "$target_user" rate-mirrors --per-mirror-timeout 1500 "$mirror_flavor" > /etc/pacman.d/mirrorlist
 
 ln -sf "$DEST/gatherd.service" /etc/systemd/system/gatherd.service
 ln -sf "$DEST/gatherd-slow.service" /etc/systemd/system/gatherd-slow.service
